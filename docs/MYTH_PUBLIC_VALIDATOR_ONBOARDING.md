@@ -1,8 +1,9 @@
 # MYTH Public Validator and Delegator Onboarding
 
-**Status: rollout draft.** No public chain ID, genesis file/checksum, seed address,
-RPC endpoint, or binary release has been published. Do not use local `.testnets`
-files or local validator keys for a public network.
+**Status: validator-binary prerelease available; public network not launched.** The
+`v0.1.0-myth-phase1` GitHub prerelease contains amd64/arm64 Ubuntu packages. No public
+chain ID, genesis file/checksum, seed address, or RPC endpoint has been published.
+Do not use local `.testnets` files or local validator keys for a public network.
 
 ## MYTH and ZYRA roles
 
@@ -23,7 +24,7 @@ MYTH is sold/distributed by the founder outside the validator software. Validato
 software does not custody keys or sell tokens. A prospective operator first obtains
 MYTH, funds an account, and then self-bonds through the standard staking transaction.
 The initial public genesis allocation is planned for the founder's mini-PC
-mini-PC genesis-validator account (1M MYTH); future operators acquire MYTH from the founder
+genesis-validator account (1M MYTH); future operators acquire MYTH from the founder
 and join through staking. The 20M Community Pool cannot be spent without on-chain
 governance approval.
 
@@ -34,13 +35,12 @@ The official release page must publish and sign-off all of the following:
 | Artifact/configuration | Public launch value |
 |---|---|
 | Chain ID | `<MYTH_CHAIN_ID>` |
-| Binary version and SHA-256 checksums | `<RELEASE_VERSION>` |
+| Binary package release | `v0.1.0-myth-phase1` (development prerelease) |
 | Canonical genesis JSON and SHA-256 | `<GENESIS_URL>` / `<GENESIS_SHA256>` |
 | Seed/persistent peer addresses | `<SEED_ID>@<SEED_IP>:26656` |
 | RPC endpoint for tx/query | `<RPC_URL>` |
-| Minimum gas-price config | `<MIN_GAS_PRICE_UMYTH>,<MIN_GAS_PRICE_UZYRA>` |
+| Minimum gas-price config (both configured from Phase 1; ZYRA fee use gated until Phase 2) | `<MIN_GAS_PRICE_UMYTH>,<MIN_GAS_PRICE_UZYRA>` |
 | Bond denom | `umyth` |
-| Phase 2 fee prices | `<MIN_GAS_PRICE_UMYTH>,<MIN_GAS_PRICE_UZYRA>` |
 
 Do not announce these placeholders as working public endpoints. The initial
 validator set, exact founder self-bond, Treasury governance process, unbonding,
@@ -74,12 +74,20 @@ sudo apt install "./mythprotocold_${VERSION}_amd64.deb" # use _arm64.deb on aarc
 mythprotocold version
 ```
 
-The `0.1.0-dev-myth-phase1` artifact is only a locally built node package. It does not make the
-local test chain public or provide the public genesis/seed configuration.
+The binary is available from the GitHub release. For amd64:
 
-Once a release is published, download the `.deb` and checksum file from its release
-page and use the same `sha256sum -c` / `apt install ./package.deb` sequence. Replace
-the local `0.1.0-dev-myth-phase1` version above with the published release version.
+```sh
+VERSION=0.1.0-dev-myth-phase1
+TAG=v0.1.0-myth-phase1
+wget "https://github.com/annabil-dev/ON-CHAIN-VALIDATOR/releases/download/${TAG}/mythprotocold_${VERSION}_amd64.deb"
+wget "https://github.com/annabil-dev/ON-CHAIN-VALIDATOR/releases/download/${TAG}/mythprotocold_${VERSION}_amd64.deb.sha256"
+sha256sum -c "mythprotocold_${VERSION}_amd64.deb.sha256"
+sudo apt install "./mythprotocold_${VERSION}_amd64.deb"
+```
+
+Use `_arm64.deb` for `aarch64`. This is a development binary package: installing it
+does not create or connect to the public chain. Wait for the official genesis, chain
+ID, seed peers, and RPC endpoint before operating it as a public validator.
 
 ## Initialize and sync a full node
 
