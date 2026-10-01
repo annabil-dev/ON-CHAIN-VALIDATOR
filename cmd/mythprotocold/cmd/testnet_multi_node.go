@@ -259,10 +259,13 @@ func initTestnetFiles(
 			return err
 		}
 
-		// save private key seed words
-		file := filepath.Join(nodeDir, fmt.Sprintf("%v.json", "key_seed"))
-		if err := writeFile(file, nodeDir, cliPrint); err != nil {
-			return err
+		// Keep seed-word backups only in the local test keyring fixture. Never
+		// write a production OS/file-keyring mnemonic into the node directory.
+		if args.keyringBackend == "test" {
+			file := filepath.Join(nodeDir, "key_seed.json")
+			if err := writeFile(file, nodeDir, cliPrint); err != nil {
+				return err
+			}
 		}
 
 		accTokens := sdk.TokensFromConsensusPower(1000, sdk.DefaultPowerReduction)
@@ -271,9 +274,9 @@ func initTestnetFiles(
 			accStakingAmount++
 		}
 		accStakingTokens := math.NewIntFromUint64(accStakingAmount)
-		coins := sdk.Coins{
-			sdk.NewCoin("testtoken", accTokens),
-			sdk.NewCoin(sdk.DefaultBondDenom, accStakingTokens),
+		coins := sdk.NewCoins(sdk.NewCoin(sdk.DefaultBondDenom, accStakingTokens))
+		if args.keyringBackend == "test" {
+			coins = coins.Add(sdk.NewCoin("testtoken", accTokens))
 		}
 
 		genBalances = append(genBalances, banktypes.Balance{Address: addr.String(), Coins: coins.Sort()})
@@ -322,7 +325,7 @@ func initTestnetFiles(
 		if err != nil {
 			return err
 		}
-		file = filepath.Join(gentxsDir, fmt.Sprintf("%v.json", "gentx-"+nodeIDs[i]))
+		file := filepath.Join(gentxsDir, fmt.Sprintf("%v.json", "gentx-"+nodeIDs[i]))
 		gentxsFiles = append(gentxsFiles, file)
 		if err := writeFile(file, gentxsDir, txBz); err != nil {
 			return err
@@ -464,6 +467,11 @@ func collectGenFiles(
 	numValidators := args.numValidators
 	outputDir := args.outputDir
 	nodeDirPrefix := args.nodeDirPrefix
+	if numValidators == 1 {
+		// A solo genesis validator has no peer list yet; external validators can
+		// later dial this node after its public P2P endpoint is published.
+		persistentPeers = ""
+	}
 
 	var appState json.RawMessage
 	genTime := tmtime.Now()

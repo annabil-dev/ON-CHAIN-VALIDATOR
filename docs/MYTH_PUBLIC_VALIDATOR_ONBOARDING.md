@@ -1,7 +1,7 @@
 # MYTH Public Validator and Delegator Onboarding
 
 **Status: validator-binary prerelease available; public network not launched.** The
-`v0.1.0-myth-phase1` GitHub prerelease contains amd64/arm64 Ubuntu packages. No public
+`v0.1.1-myth-phase1` GitHub prerelease contains amd64/arm64 Ubuntu packages. No public
 chain ID, genesis file/checksum, seed address, or RPC endpoint has been published.
 Do not use local `.testnets` files or local validator keys for a public network.
 
@@ -35,7 +35,7 @@ The official release page must publish and sign-off all of the following:
 | Artifact/configuration | Public launch value |
 |---|---|
 | Chain ID | `<MYTH_CHAIN_ID>` |
-| Binary package release | `v0.1.0-myth-phase1` (development prerelease) |
+| Binary package release | `v0.1.1-myth-phase1` (development prerelease) |
 | Canonical genesis JSON and SHA-256 | `<GENESIS_URL>` / `<GENESIS_SHA256>` |
 | Seed/persistent peer addresses | `<SEED_ID>@<SEED_IP>:26656` |
 | RPC endpoint for tx/query | `<RPC_URL>` |
@@ -57,18 +57,18 @@ The release folder contains `.deb` packages and `SHA256SUMS`. The package instal
 From Windows PowerShell, build both Linux architectures into the WSL cache:
 
 ```powershell
-wsl.exe -d Ubuntu --cd '/mnt/d/Semester 5/AI/mythchain/mythprotocol' -e bash -c 'export PATH=/home/mythchain/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.7.linux-amd64/bin:/usr/local/bin:/usr/bin:/bin; VERSION=0.1.0-dev-myth-phase1 OUT_DIR=/home/mythchain/.cache/myth-validator-release-myth-phase1 bash build_validator_release.sh'
+wsl.exe -d Ubuntu --cd '/mnt/d/Semester 5/AI/mythchain/mythprotocol' -e bash -c 'export PATH=/home/mythchain/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.7.linux-amd64/bin:/usr/local/bin:/usr/bin:/bin; VERSION=0.1.1-dev-myth-phase1 OUT_DIR=/home/mythchain/.cache/myth-validator-release-myth-phase1-v0.1.1 bash build_validator_release.sh'
 ```
 
 The output folder contains amd64/arm64 tarballs, `.deb` packages, and per-package
 checksums. It is available in Windows Explorer at:
-`\\wsl.localhost\Ubuntu\home\mythchain\.cache\myth-validator-release-myth-phase1`.
+`\\wsl.localhost\Ubuntu\home\mythchain\.cache\myth-validator-release-myth-phase1-v0.1.1`.
 For a mini-PC, transfer just the matching `.deb` and its `.sha256` file with `scp` or
 USB. On Ubuntu, use `uname -m`: `x86_64` selects `amd64`; `aarch64` selects `arm64`.
 Verify and install the package:
 
 ```sh
-VERSION=0.1.0-dev-myth-phase1
+VERSION=0.1.1-dev-myth-phase1
 sha256sum -c "mythprotocold_${VERSION}_amd64.deb.sha256" # use _arm64.deb on aarch64
 sudo apt install "./mythprotocold_${VERSION}_amd64.deb" # use _arm64.deb on aarch64
 mythprotocold version
@@ -77,8 +77,8 @@ mythprotocold version
 The binary is available from the GitHub release. For amd64:
 
 ```sh
-VERSION=0.1.0-dev-myth-phase1
-TAG=v0.1.0-myth-phase1
+VERSION=0.1.1-dev-myth-phase1
+TAG=v0.1.1-myth-phase1
 wget "https://github.com/annabil-dev/ON-CHAIN-VALIDATOR/releases/download/${TAG}/mythprotocold_${VERSION}_amd64.deb"
 wget "https://github.com/annabil-dev/ON-CHAIN-VALIDATOR/releases/download/${TAG}/mythprotocold_${VERSION}_amd64.deb.sha256"
 sha256sum -c "mythprotocold_${VERSION}_amd64.deb.sha256"
@@ -119,30 +119,60 @@ validator and is in the active validator set.
 
 ## Founder mini-PC: prepare the genesis validator
 
-The founder's mini-PC is intended to be the first genesis validator. Before the
-network's genesis is finalized, install the binary package and generate the node's
-own validator and operator keys on that mini-PC:
+The founder's mini-PC is intended to be the first genesis validator. Once the final
+public chain ID and public IP are chosen, initialize the one-validator genesis on
+that mini-PC with the purpose-built MYTH genesis builder:
 
 ```sh
-export MYTH_HOME="$HOME/.mythprotocol"
-export MYTH_CHAIN_ID="<MYTH_CHAIN_ID>"
-mythprotocold init "<FOUNDER_MONIKER>" --chain-id "$MYTH_CHAIN_ID" --home "$MYTH_HOME"
-mythprotocold keys add <FOUNDER_OPERATOR_KEY> --keyring-backend os --home "$MYTH_HOME"
-mythprotocold tendermint show-validator --home "$MYTH_HOME"
+export MYTH_GENESIS_DIR="$HOME/myth-genesis"
+export MYTH_CHAIN_ID="<FINAL_PUBLIC_CHAIN_ID>" # immutable once genesis is published
+export MYTH_PUBLIC_IP="<FOUNDER_MINI_PC_PUBLIC_IP>"
+export FOUNDER_SELF_BOND="100000000umyth" # example: 100 MYTH from the founder's 1M allocation
+
+mythprotocold multi-node --v 1 \
+  --output-dir "$MYTH_GENESIS_DIR" \
+  --chain-id "$MYTH_CHAIN_ID" \
+  --validators-stake-amount "$FOUNDER_SELF_BOND" \
+  --starting-ip-address "$MYTH_PUBLIC_IP" \
+  --keyring-backend file \
+  --minimum-gas-prices "0.0001umyth,0.0001uzyra"
 ```
 
-Provide the founder's public account address, consensus public key, public IP, and
-signed gentx to the genesis coordinator. The canonical genesis assigns the 1M MYTH
-allocation to this operator account and includes the founder mini-PC's gentx; do not send
-the operator mnemonic, `priv_validator_key.json`, or node private key. The 1M is an
-allocation, not necessarily the self-bond amount—publish the approved self-bond and
-the remaining liquid founder balance in the genesis manifest.
+Run this interactively on the mini-PC; the encrypted `file` keyring asks you to set
+and confirm its passphrase. In non-test keyring modes the builder does not add fake
+`testtoken` balances or write the wallet mnemonic to a plaintext `key_seed.json`.
 
-The genesis coordinator must finalize the genesis allocation, Community Pool state,
-all initial gentxs, chain ID, seed list, and genesis checksum before the mini-PC
-starts production consensus. Only start when the genesis checksum matches the
-official release manifest. Other MYTH holders join after launch with the normal
-`create-validator` command below.
+The `multi-node --v 1` builder creates the validator/operator key with the encrypted
+file keyring, node/consensus keys, MYTH genesis allocation, 20M Community Pool, mint
+cap, Phase 1 gas configuration, and a signed genesis gentx. It does not save a
+plaintext mnemonic in file-keyring mode. The example self-bond is only 100 MYTH; the
+founder's full 1M MYTH remains allocated to the founder account, with the rest liquid
+for later sale. Change the self-bond amount only before finalizing genesis.
+
+The generated genesis is at
+`$MYTH_GENESIS_DIR/validator0/config/genesis.json`; the signed gentx is in
+`$MYTH_GENESIS_DIR/validator0/config/gentx/`. Validate before sharing the public
+genesis:
+
+```sh
+export MYTH_HOME="$MYTH_GENESIS_DIR/validator0"
+mythprotocold genesis validate-genesis --home "$MYTH_HOME"
+sha256sum "$MYTH_HOME/config/genesis.json"
+```
+
+The gentx and genesis contain public validator/account data but no private keys; send
+only those files/checksums to the public launch review. Keep the keyring, node key,
+and `priv_validator_key.json` on the mini-PC. After the genesis/checksum is approved,
+start the founder node and advertise its P2P address:
+
+```sh
+mythprotocold start --home "$MYTH_HOME" \
+  --p2p.external-address "${MYTH_PUBLIC_IP}:26656"
+```
+
+The first validator is a single point of failure until additional MYTH-funded
+validators join. Their approved genesis/start instructions and seed list must be
+published before onboarding them.
 
 ## Join as a validator
 

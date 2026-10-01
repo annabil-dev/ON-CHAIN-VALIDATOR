@@ -93,5 +93,5 @@ See [MYTH Public Validator and Delegator Onboarding](MYTH_PUBLIC_VALIDATOR_ONBOA
 for the Ubuntu `.deb`, checksum verification, founder mini-PC preparation, validator
 and delegator commands, and public rollout placeholders. The
 [`build_validator_release.sh`](../build_validator_release.sh) script prepares Linux
-amd64/arm64 tarballs and `.deb` packages. The published `v0.1.0-myth-phase1` assets
+  amd64/arm64 tarballs and `.deb` packages. The development `v0.1.1-myth-phase1` assets
 are development packages, not a public-chain configuration.
