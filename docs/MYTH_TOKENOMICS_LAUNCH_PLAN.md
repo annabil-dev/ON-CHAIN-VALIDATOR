@@ -14,8 +14,9 @@ public genesis, chain ID, seed list, or RPC endpoint.
 MYTH genesis allocation: **1,000,000 MYTH to the founder's mini-PC genesis-validator
 account** and **20,000,000 MYTH to the distribution Community Pool/Treasury**. The
 Treasury is locked for on-chain governance spending. Validators earn transaction-fee
-distributions; MYTH is not inflated after genesis. The exact founder self-bond and
-Treasury grant/reward policy are still to be finalized.
+distributions; MYTH is not inflated after genesis. The founder's full 1,000,000 MYTH
+allocation is planned as the genesis self-bond; Treasury grant/reward policy remains
+to be finalized.
 
 ## Launch phases
 
@@ -28,10 +29,13 @@ Treasury grant/reward policy are still to be finalized.
    account has zero balance in all currently accepted fee denoms. Any positive
    accepted-fee-token balance revokes gasless permanently, even after being spent.
 
-The public genesis validator is the founder's mini PC. Public chain ID, canonical
-genesis/hash, peer seeds, RPC, self-bond amount, commission, unbonding and slashing
-parameters must be published before external operators join. New operators acquire
-MYTH from the founder and submit a normal staking `create-validator` transaction.
+The public genesis validator is the founder's mini PC at `114.10.44.157`, using chain
+ID `myth-mainnet-1`. The canonical genesis/hash, peer seeds, RPC, commission,
+unbonding, and slashing parameters must be published before external operators join.
+New operators acquire MYTH from the founder and submit a normal staking
+`create-validator` transaction. The genesis builder defaults the founder gentx to a
+5% commission, 6% maximum, and 1-percentage-point maximum change; these rates are
+configurable through explicit CLI flags.
 
 The local four-validator Phase 1 fixture evenly splits the test MYTH validator
 allocation across four test accounts. That fixture distribution is not the public
@@ -82,6 +86,9 @@ The category is sent in `MsgRegisterTask` before a Miner claims the task.
 - `go test ./...` passes; the complete Python suite reports **176 passed, 14 skipped**.
 - Four-validator MYTH Phase 1 genesis test produced exactly 21M `umyth`, including
   the 20M Community Pool, kept ZYRA supply at zero, and accepted a MYTH gas-fee tx.
+- One-validator `file`-keyring genesis flow validated and reached consensus locally;
+  it created a signed gentx, kept wallet recovery material out of plaintext files,
+  and ran without test-token balances.
 - Separate four-validator ZYRA smoke tests verified 3-of-4 payout, the 2–2
   no-quorum expiry/reclaim path, gasless rate limiting/permanent balance revocation,
   and adapter fee fallback.
@@ -93,5 +100,7 @@ See [MYTH Public Validator and Delegator Onboarding](MYTH_PUBLIC_VALIDATOR_ONBOA
 for the Ubuntu `.deb`, checksum verification, founder mini-PC preparation, validator
 and delegator commands, and public rollout placeholders. The
 [`build_validator_release.sh`](../build_validator_release.sh) script prepares Linux
-  amd64/arm64 tarballs and `.deb` packages. The development `v0.1.1-myth-phase1` assets
-are development packages, not a public-chain configuration.
+amd64/arm64 tarballs and `.deb` packages, and [`release_mythchain.py`](../release_mythchain.py)
+publishes them through GitHub Actions without requiring a manual WSL shell. The
+`v0.1.2-myth-phase1` package is a development prerelease, not a public-chain
+configuration.

@@ -50,6 +50,9 @@ var (
 	flagOutputDir             = "output-dir"
 	flagValidatorsStakeAmount = "validators-stake-amount"
 	flagStartingIPAddress     = "starting-ip-address"
+	flagCommissionRate        = "commission-rate"
+	flagCommissionMaxRate     = "commission-max-rate"
+	flagCommissionMaxChange   = "commission-max-change-rate"
 )
 
 const nodeDirPerm = 0o755
@@ -66,6 +69,9 @@ type initArgs struct {
 	validatorsStakesAmount map[int]sdk.Coin
 	ports                  map[int]string
 	enablePoUWEmissions    bool
+	commissionRate         math.LegacyDec
+	commissionMaxRate      math.LegacyDec
+	commissionMaxChange    math.LegacyDec
 }
 
 // NewTestnetMultiNodeCmd returns a cmd to initialize all files for tendermint testnet and application
@@ -103,6 +109,22 @@ Example:
 			args.numValidators, _ = cmd.Flags().GetInt(flagNumValidators)
 			args.algo, _ = cmd.Flags().GetString(flags.FlagKeyType)
 			args.enablePoUWEmissions, _ = cmd.Flags().GetBool(flagEnablePoUWEmissions)
+			args.commissionRate, err = getCommissionFlag(cmd, flagCommissionRate)
+			if err != nil {
+				return err
+			}
+			args.commissionMaxRate, err = getCommissionFlag(cmd, flagCommissionMaxRate)
+			if err != nil {
+				return err
+			}
+			args.commissionMaxChange, err = getCommissionFlag(cmd, flagCommissionMaxChange)
+			if err != nil {
+				return err
+			}
+			commission := stakingtypes.NewCommissionRates(args.commissionRate, args.commissionMaxRate, args.commissionMaxChange)
+			if err := commission.Validate(); err != nil {
+				return fmt.Errorf("invalid validator commission settings: %w", err)
+			}
 			if args.numValidators < 1 {
 				return fmt.Errorf("number of validators must be positive")
 			}
@@ -147,9 +169,26 @@ Example:
 	cmd.Flags().String(flagNodeDirPrefix, "validator", "Prefix the directory name for each node with (node results in node0, node1, ...)")
 	cmd.Flags().String(flagValidatorsStakeAmount, "100000000,100000000,100000000,100000000", "Amount of stake for each validator")
 	cmd.Flags().String(flagStartingIPAddress, "localhost", "Starting IP address (192.168.0.1 results in persistent peers list ID0@192.168.0.1:46656, ID1@192.168.0.2:46656, ...)")
+	cmd.Flags().String(flagCommissionRate, "0.05", "Initial validator commission rate (decimal fraction; 0.05 means 5%)")
+	cmd.Flags().String(flagCommissionMaxRate, "0.06", "Maximum validator commission rate (decimal fraction; 0.06 means 6%)")
+	cmd.Flags().String(flagCommissionMaxChange, "0.01", "Maximum commission change per update (decimal fraction; 0.01 means 1 percentage point)")
 	cmd.Flags().String(flags.FlagKeyringBackend, "test", "Select keyring's backend (os|file|test)")
 
 	return cmd
+}
+
+func getCommissionFlag(cmd *cobra.Command, name string) (math.LegacyDec, error) {
+	value, err := cmd.Flags().GetString(name)
+	if err != nil {
+		return math.LegacyDec{}, err
+	}
+
+	rate, err := math.LegacyNewDecFromStr(value)
+	if err != nil {
+		return math.LegacyDec{}, fmt.Errorf("invalid --%s value %q: %w", name, value, err)
+	}
+
+	return rate, nil
 }
 
 func addTestnetFlagsToCmd(cmd *cobra.Command) {
@@ -296,7 +335,7 @@ func initTestnetFiles(
 			valPubKeys[i],
 			valTokens,
 			stakingtypes.NewDescription(nodeDirName, "", "", "", ""),
-			stakingtypes.NewCommissionRates(math.LegacyOneDec(), math.LegacyOneDec(), math.LegacyOneDec()),
+			stakingtypes.NewCommissionRates(args.commissionRate, args.commissionMaxRate, args.commissionMaxChange),
 			math.OneInt(),
 		)
 		if err != nil {

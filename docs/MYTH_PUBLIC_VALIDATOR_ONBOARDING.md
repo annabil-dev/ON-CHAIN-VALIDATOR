@@ -1,9 +1,12 @@
 # MYTH Public Validator and Delegator Onboarding
 
-**Status: validator-binary prerelease available; public network not launched.** The
-`v0.1.1-myth-phase1` GitHub prerelease contains amd64/arm64 Ubuntu packages. No public
-chain ID, genesis file/checksum, seed address, or RPC endpoint has been published.
-Do not use local `.testnets` files or local validator keys for a public network.
+**Status: commission-configurable validator prerelease available; public network not
+launched.** `v0.1.2-myth-phase1` contains the updated amd64/arm64 Ubuntu packages. The
+older `v0.1.1-myth-phase1` package hardcodes 100% commission and must not be used for
+this production gentx. Launch preparation is using chain ID `myth-mainnet-1` and
+founder mini-PC public IP `114.10.44.157`; the canonical genesis/checksum, seed
+address, and RPC endpoint have not yet been published. Do not use local `.testnets`
+files or local test keys for a public network.
 
 ## MYTH and ZYRA roles
 
@@ -34,8 +37,11 @@ The official release page must publish and sign-off all of the following:
 
 | Artifact/configuration | Public launch value |
 |---|---|
-| Chain ID | `<MYTH_CHAIN_ID>` |
-| Binary package release | `v0.1.1-myth-phase1` (development prerelease) |
+| Chain ID | `myth-mainnet-1` |
+| Founder mini-PC public IP | `114.10.44.157` |
+| Founder genesis self-bond | `1000000000000umyth` (1,000,000 MYTH) |
+| Genesis validator commission | 5% rate / 6% max / 1 percentage point max-change |
+| Validator package | `v0.1.2-myth-phase1` (commission-configurable prerelease) |
 | Canonical genesis JSON and SHA-256 | `<GENESIS_URL>` / `<GENESIS_SHA256>` |
 | Seed/persistent peer addresses | `<SEED_ID>@<SEED_IP>:26656` |
 | RPC endpoint for tx/query | `<RPC_URL>` |
@@ -43,57 +49,55 @@ The official release page must publish and sign-off all of the following:
 | Bond denom | `umyth` |
 
 Do not announce these placeholders as working public endpoints. The initial
-validator set, exact founder self-bond, Treasury governance process, unbonding,
-commission, and slashing parameters must be approved in the public genesis manifest.
+validator set, 1,000,000 MYTH founder self-bond, Treasury governance process,
+unbonding, commission, and slashing parameters must be approved in the public genesis
+manifest. The genesis builder defaults to a 5% commission rate, 6% maximum, and
+1-percentage-point maximum change; these can be explicitly set on the command line.
 
-## Install a released Ubuntu package
+## Publish and install the updated Ubuntu package
 
-The release folder contains `.deb` packages and `SHA256SUMS`. The package installs
-`mythprotocold` at `/usr/bin/mythprotocold` and the validator guide under
-`/usr/share/doc/mythprotocold/`.
+The package installs `mythprotocold` at `/usr/bin/mythprotocold` and the validator
+guide under `/usr/share/doc/mythprotocold/`.
 
-### Build the package from the Windows source tree with WSL
+### Publish from Windows PowerShell (no WSL shell required)
 
-From Windows PowerShell, build both Linux architectures into the WSL cache:
+Requirements: Python 3, Git, GitHub CLI (`gh`) authenticated to GitHub, and a clean
+working tree. From the repository root, the script pushes the current branch and
+release tag; GitHub Actions runs tests, builds both Ubuntu architectures, and publishes
+the prerelease:
 
 ```powershell
-wsl.exe -d Ubuntu --cd '/mnt/d/Semester 5/AI/mythchain/mythprotocol' -e bash -c 'export PATH=/home/mythchain/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.7.linux-amd64/bin:/usr/local/bin:/usr/bin:/bin; VERSION=0.1.1-dev-myth-phase1 OUT_DIR=/home/mythchain/.cache/myth-validator-release-myth-phase1-v0.1.1 bash build_validator_release.sh'
+python release_mythchain.py v0.1.2-myth-phase1
 ```
 
-The output folder contains amd64/arm64 tarballs, `.deb` packages, and per-package
-checksums. It is available in Windows Explorer at:
-`\\wsl.localhost\Ubuntu\home\mythchain\.cache\myth-validator-release-myth-phase1-v0.1.1`.
-For a mini-PC, transfer just the matching `.deb` and its `.sha256` file with `scp` or
-USB. On Ubuntu, use `uname -m`: `x86_64` selects `amd64`; `aarch64` selects `arm64`.
-Verify and install the package:
+The script asks for confirmation unless `--yes` is supplied and waits for the Actions
+release job to finish. To rerun this workflow for a later release, use a new version
+tag and commit the intended changes first.
+
+### Install on the mini-PC
+
+On Ubuntu, use `uname -m`: `x86_64` selects `amd64`; `aarch64` selects `arm64`.
+Download, verify, and install the amd64 package:
 
 ```sh
-VERSION=0.1.1-dev-myth-phase1
-sha256sum -c "mythprotocold_${VERSION}_amd64.deb.sha256" # use _arm64.deb on aarch64
-sudo apt install "./mythprotocold_${VERSION}_amd64.deb" # use _arm64.deb on aarch64
-mythprotocold version
-```
-
-The binary is available from the GitHub release. For amd64:
-
-```sh
-VERSION=0.1.1-dev-myth-phase1
-TAG=v0.1.1-myth-phase1
+VERSION=0.1.2-myth-phase1
+TAG=v0.1.2-myth-phase1
 wget "https://github.com/annabil-dev/ON-CHAIN-VALIDATOR/releases/download/${TAG}/mythprotocold_${VERSION}_amd64.deb"
 wget "https://github.com/annabil-dev/ON-CHAIN-VALIDATOR/releases/download/${TAG}/mythprotocold_${VERSION}_amd64.deb.sha256"
 sha256sum -c "mythprotocold_${VERSION}_amd64.deb.sha256"
 sudo apt install "./mythprotocold_${VERSION}_amd64.deb"
+mythprotocold version
 ```
 
-Use `_arm64.deb` for `aarch64`. This is a development binary package: installing it
-does not create or connect to the public chain. Wait for the official genesis, chain
-ID, seed peers, and RPC endpoint before operating it as a public validator.
+For `aarch64`, replace `_amd64.deb` with `_arm64.deb` in the download, checksum, and
+install commands. Installing the package alone does not create or connect to the
+public chain.
 
 ## Initialize and sync a full node
 
 ```sh
 export MYTH_HOME="$HOME/.mythprotocol"
-export MYTH_CHAIN_ID="<MYTH_CHAIN_ID>"
+export MYTH_CHAIN_ID="myth-mainnet-1"
 
 mythprotocold init "<NODE_MONIKER>" --chain-id "$MYTH_CHAIN_ID" --home "$MYTH_HOME"
 ```
@@ -119,35 +123,48 @@ validator and is in the active validator set.
 
 ## Founder mini-PC: prepare the genesis validator
 
-The founder's mini-PC is intended to be the first genesis validator. Once the final
-public chain ID and public IP are chosen, initialize the one-validator genesis on
-that mini-PC with the purpose-built MYTH genesis builder:
+The founder's mini-PC is intended to be the first genesis validator. The confirmed
+launch parameters are chain ID `myth-mainnet-1`, public IP `114.10.44.157`, and a full
+1,000,000 MYTH self-bond. On that mini-PC, use the purpose-built MYTH genesis builder:
 
 ```sh
 export MYTH_GENESIS_DIR="$HOME/myth-genesis"
-export MYTH_CHAIN_ID="<FINAL_PUBLIC_CHAIN_ID>" # immutable once genesis is published
-export MYTH_PUBLIC_IP="<FOUNDER_MINI_PC_PUBLIC_IP>"
-export FOUNDER_SELF_BOND="100000000umyth" # example: 100 MYTH from the founder's 1M allocation
+export MYTH_CHAIN_ID="myth-mainnet-1" # immutable once genesis is published
+export MYTH_PUBLIC_IP="114.10.44.157"
+export FOUNDER_SELF_BOND="1000000000000" # 1,000,000 MYTH in umyth; this flag takes an integer, without the denom suffix
+
+if [ -e "$MYTH_GENESIS_DIR" ]; then
+  echo "Refusing to overwrite existing genesis directory: $MYTH_GENESIS_DIR" >&2
+  exit 1
+fi
 
 mythprotocold multi-node --v 1 \
   --output-dir "$MYTH_GENESIS_DIR" \
   --chain-id "$MYTH_CHAIN_ID" \
   --validators-stake-amount "$FOUNDER_SELF_BOND" \
   --starting-ip-address "$MYTH_PUBLIC_IP" \
+  --commission-rate 0.05 \
+  --commission-max-rate 0.06 \
+  --commission-max-change-rate 0.01 \
   --keyring-backend file \
   --minimum-gas-prices "0.0001umyth,0.0001uzyra"
 ```
 
 Run this interactively on the mini-PC; the encrypted `file` keyring asks you to set
-and confirm its passphrase. In non-test keyring modes the builder does not add fake
-`testtoken` balances or write the wallet mnemonic to a plaintext `key_seed.json`.
+and confirm its passphrase. This builder performs the node initialization, operator
+key creation, MYTH genesis allocation, gentx creation/signing, and genesis collection
+as one coordinated operation. Do not also run separate `init`, `keys add`,
+`add-genesis-account`, or `gentx` commands for this node; that would duplicate steps
+or bypass the MYTH Treasury/supply setup. In non-test keyring modes the builder does
+not add fake `testtoken` balances or write the wallet mnemonic to plaintext.
 
 The `multi-node --v 1` builder creates the validator/operator key with the encrypted
 file keyring, node/consensus keys, MYTH genesis allocation, 20M Community Pool, mint
 cap, Phase 1 gas configuration, and a signed genesis gentx. It does not save a
-plaintext mnemonic in file-keyring mode. The example self-bond is only 100 MYTH; the
-founder's full 1M MYTH remains allocated to the founder account, with the rest liquid
-for later sale. Change the self-bond amount only before finalizing genesis.
+plaintext mnemonic in file-keyring mode. The requested self-bond is the full 1M MYTH
+founder allocation, so none of that allocation remains liquid after the gentx is
+applied. Change the amount only if the public genesis manifest is revised before
+finalization.
 
 The generated genesis is at
 `$MYTH_GENESIS_DIR/validator0/config/genesis.json`; the signed gentx is in
