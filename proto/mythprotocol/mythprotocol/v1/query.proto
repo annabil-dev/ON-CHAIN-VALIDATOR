@@ -1,0 +1,40 @@
+syntax = "proto3";
+package mythprotocol.mythprotocol.v1;
+
+import "amino/amino.proto";
+import "gogoproto/gogo.proto";
+import "google/api/annotations.proto";
+import "mythprotocol/mythprotocol/v1/params.proto";
+import "mythprotocol/mythprotocol/v1/tx.proto";
+
+option go_package = "mythprotocol/x/mythprotocol/types";
+
+// Query defines the gRPC querier service.
+service Query {
+  // Parameters queries the parameters of the module.
+  rpc Params(QueryParamsRequest) returns (QueryParamsResponse) {
+    option (google.api.http).get = "/mythprotocol/mythprotocol/v1/params";
+  }
+
+  // TaskLease queries the current on-chain lease for a task ID.
+  rpc TaskLease(QueryTaskLeaseRequest) returns (QueryTaskLeaseResponse) {
+    option (google.api.http).get = "/mythprotocol/mythprotocol/v1/tasks/{task_id}/lease";
+  }
+}
+
+// QueryTaskLeaseRequest is the request type for querying a task lease.
+message QueryTaskLeaseRequest { string task_id = 1; }
+// QueryTaskLeaseResponse contains the lease when found is true.
+message QueryTaskLeaseResponse { TaskLease lease = 1; bool found = 2; }
+
+// QueryParamsRequest is request type for the Query/Params RPC method.
+message QueryParamsRequest {}
+
+// QueryParamsResponse is response type for the Query/Params RPC method.
+message QueryParamsResponse {
+  // params holds all the parameters of this module.
+  Params params = 1 [
+    (gogoproto.nullable) = false,
+    (amino.dont_omitempty) = true
+  ];
+}

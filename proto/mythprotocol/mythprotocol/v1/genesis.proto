@@ -1,0 +1,22 @@
+syntax = "proto3";
+package mythprotocol.mythprotocol.v1;
+
+import "amino/amino.proto";
+import "gogoproto/gogo.proto";
+import "mythprotocol/mythprotocol/v1/params.proto";
+import "mythprotocol/mythprotocol/v1/tx.proto";
+
+option go_package = "mythprotocol/x/mythprotocol/types";
+
+// GenesisState defines the mythprotocol module's genesis state.
+message GenesisState {
+  // params defines all the parameters of the module.
+  Params params = 1 [
+    (gogoproto.nullable) = false,
+    (amino.dont_omitempty) = true
+  ];
+  repeated TaskLease task_leases = 2 [(gogoproto.nullable) = false];
+  // runtime_state_json stores PoUW emission carry/step state and deterministic
+  // per-signer gasless message rate counters.
+  string runtime_state_json = 3;
+}

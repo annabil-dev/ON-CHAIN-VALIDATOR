@@ -1,0 +1,154 @@
+syntax = "proto3";
+package mythprotocol.mythprotocol.v1;
+
+import "amino/amino.proto";
+import "cosmos/msg/v1/msg.proto";
+import "cosmos_proto/cosmos.proto";
+import "gogoproto/gogo.proto";
+import "mythprotocol/mythprotocol/v1/params.proto";
+
+option go_package = "mythprotocol/x/mythprotocol/types";
+
+// Msg defines the Msg service.
+service Msg {
+  option (cosmos.msg.v1.service) = true;
+
+  // UpdateParams defines a (governance) operation for updating the module
+  // parameters. The authority defaults to the x/gov module account.
+  rpc UpdateParams(MsgUpdateParams) returns (MsgUpdateParamsResponse);
+
+  // ClaimTask creates the canonical, block-height-based task lease.
+  rpc ClaimTask(MsgClaimTask) returns (MsgClaimTaskResponse);
+  // RegisterTask anchors task existence and acceptance criteria on chain.
+  rpc RegisterTask(MsgRegisterTask) returns (MsgRegisterTaskResponse);
+  // ReleaseTask releases an unused lease before submitting work.
+  rpc ReleaseTask(MsgReleaseTask) returns (MsgReleaseTaskResponse);
+  // SubmitTaskResult binds a content-addressed artefact to the active lease.
+  rpc SubmitTaskResult(MsgSubmitTaskResult) returns (MsgSubmitTaskResultResponse);
+  // VoteTask records an authenticated judge verdict for the active attempt.
+  rpc VoteTask(MsgVoteTask) returns (MsgVoteTaskResponse);
+}
+
+// TaskLease is chain state for the current owner/attempt of a task.
+message TaskLease {
+  string task_id = 1;
+  string acceptance_hash = 2;
+  string miner_address = 3;
+  string attempt_id = 4;
+  int64 start_height = 5;
+  int64 expires_at_height = 6;
+  string status = 7;
+  string result_cid = 8;
+  string proof_hash = 9;
+  string client_address = 10;
+  repeated TaskVote votes = 11 [(gogoproto.nullable) = false];
+  // criteria_json is the immutable weighted rubric; empty selects legacy PASS/FAIL voting.
+  string criteria_json = 12;
+  // canonical_criteria_results_json is rebuilt from verified 3-of-4 judge votes.
+  string canonical_criteria_results_json = 13;
+  uint64 criteria_score_numerator = 14;
+  uint64 criteria_score_denominator = 15;
+  string task_category = 16;
+  bool reward_settled = 17;
+  uint64 reward_amount_uzyra = 18;
+  repeated string judge_reward_addresses = 19;
+}
+
+// TaskVote is a chain-authenticated judge verdict for one lease attempt.
+message TaskVote {
+  string judge_address = 1;
+  string attempt_id = 2;
+  string verdict = 3;
+  string reason = 4;
+  int64 height = 5;
+  // criteria_results_json is signed by the transaction account and bound to this attempt.
+  string criteria_results_json = 6;
+}
+
+// MsgRegisterTask records a client task and its immutable acceptance hash.
+message MsgRegisterTask {
+  option (cosmos.msg.v1.signer) = "creator";
+  option (amino.name) = "mythprotocol/x/mythprotocol/MsgRegisterTask";
+  string creator = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string task_id = 2;
+  string acceptance_hash = 3;
+  // Optional weighted acceptance rubric as JSON; required for per-criterion voting.
+  string criteria_json = 4;
+  // Fixed base reward category; empty retains legacy non-settled tasks.
+  string task_category = 5;
+}
+// MsgRegisterTaskResponse returns the registered task record.
+message MsgRegisterTaskResponse { TaskLease task = 1; }
+
+// MsgClaimTask requests the first canonical block-height lease for a task.
+message MsgClaimTask {
+  option (cosmos.msg.v1.signer) = "creator";
+  option (amino.name) = "mythprotocol/x/mythprotocol/MsgClaimTask";
+  string creator = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string task_id = 2;
+  string acceptance_hash = 3;
+  uint64 lease_blocks = 4;
+  string nonce = 5;
+}
+// MsgClaimTaskResponse returns the committed task lease.
+message MsgClaimTaskResponse { TaskLease lease = 1; }
+
+// MsgReleaseTask releases an unused active lease before work is submitted.
+message MsgReleaseTask {
+  option (cosmos.msg.v1.signer) = "creator";
+  option (amino.name) = "mythprotocol/x/mythprotocol/MsgReleaseTask";
+  string creator = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string task_id = 2;
+  string attempt_id = 3;
+}
+// MsgReleaseTaskResponse is returned when a lease is released.
+message MsgReleaseTaskResponse {}
+
+// MsgSubmitTaskResult binds a content-addressed result to its active attempt.
+message MsgSubmitTaskResult {
+  option (cosmos.msg.v1.signer) = "creator";
+  option (amino.name) = "mythprotocol/x/mythprotocol/MsgSubmitTaskResult";
+  string creator = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string task_id = 2;
+  string attempt_id = 3;
+  string result_cid = 4;
+  string proof_hash = 5;
+}
+// MsgSubmitTaskResultResponse returns the lease after the result is recorded.
+message MsgSubmitTaskResultResponse { TaskLease lease = 1; }
+
+// MsgVoteTask records a signed-by-ante judge vote for a submitted attempt.
+message MsgVoteTask {
+  option (cosmos.msg.v1.signer) = "creator";
+  option (amino.name) = "mythprotocol/x/mythprotocol/MsgVoteTask";
+  string creator = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string task_id = 2;
+  string attempt_id = 3;
+  string verdict = 4;
+  string reason = 5;
+  // Per-criterion PASS/FAIL and evidence JSON, required when the task has a rubric.
+  string criteria_results_json = 6;
+}
+// MsgVoteTaskResponse returns the updated lease and its vote count.
+message MsgVoteTaskResponse { TaskLease lease = 1; uint32 votes_for_verdict = 2; }
+
+// MsgUpdateParams is the Msg/UpdateParams request type.
+message MsgUpdateParams {
+  option (cosmos.msg.v1.signer) = "authority";
+  option (amino.name) = "mythprotocol/x/mythprotocol/MsgUpdateParams";
+
+  // authority is the address that controls the module (defaults to x/gov unless overwritten).
+  string authority = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // params defines the module parameters to update.
+  //
+  // NOTE: All parameters must be supplied.
+  Params params = 2 [
+    (gogoproto.nullable) = false,
+    (amino.dont_omitempty) = true
+  ];
+}
+
+// MsgUpdateParamsResponse defines the response structure for executing a
+// MsgUpdateParams message.
+message MsgUpdateParamsResponse {}

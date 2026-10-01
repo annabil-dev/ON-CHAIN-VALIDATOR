@@ -1,0 +1,29 @@
+# Development-only Ignite config. Public MYTH genesis allocation is generated and
+# validated separately; do not use these sample accounts for the public launch.
+version: 1
+validation: sovereign
+default_denom: umyth
+accounts:
+- name: alice
+  coins:
+  - 20000token
+  - 200000000umyth
+- name: bob
+  coins:
+  - 10000token
+  - 100000000umyth
+client:
+  openapi:
+    path: docs/static/openapi.json
+faucet:
+  name: bob
+  coins:
+  - 5token
+  - 100000umyth
+validators:
+- name: alice
+  bonded: 100000000umyth
+- name: validator1
+  bonded: 200000000umyth
+- name: validator2
+  bonded: 100000000umyth

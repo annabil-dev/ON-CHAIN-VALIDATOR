@@ -1,0 +1,19 @@
+syntax = "proto3";
+package mythprotocol.mythprotocol.module.v1;
+
+import "cosmos/app/v1alpha1/module.proto";
+
+option go_package = "mythprotocol/x/mythprotocol/types";
+
+// Module is the config object for the module.
+message Module {
+  option (cosmos.app.v1alpha1.module) = {
+    go_import: "mythprotocol/x/mythprotocol"
+  };
+
+  // authority defines the custom module authority.
+  // If not set, defaults to the governance module.
+  string authority = 1;
+
+
+}

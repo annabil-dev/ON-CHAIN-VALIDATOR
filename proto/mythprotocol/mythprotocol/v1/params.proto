@@ -1,0 +1,15 @@
+syntax = "proto3";
+package mythprotocol.mythprotocol.v1;
+
+import "amino/amino.proto";
+import "gogoproto/gogo.proto";
+
+option go_package = "mythprotocol/x/mythprotocol/types";
+
+// Params defines the parameters for the module.
+message Params {
+  option (amino.name) = "mythprotocol/x/mythprotocol/Params";
+  option (gogoproto.equal) = true;
+  // enable_pouw_emissions activates ZYRA minting after the MYTH-only base-chain phase.
+  bool enable_pouw_emissions = 1;
+}
