@@ -18,13 +18,15 @@ for ARCH in amd64 arm64; do
     -ldflags "-s -w -X github.com/cosmos/cosmos-sdk/version.Version=${VERSION}" \
     -o "${STAGE}/mythprotocold" ./cmd/mythprotocold
   cp docs/MYTH_PUBLIC_VALIDATOR_ONBOARDING.md "${STAGE}/"
+  cp docs/MYTH_TOKENOMICS_LAUNCH_PLAN.md "${STAGE}/"
   tar -C "${STAGE}" -czf "${OUT_DIR}/mythprotocold-${VERSION}-linux-${ARCH}.tar.gz" \
-    mythprotocold MYTH_PUBLIC_VALIDATOR_ONBOARDING.md
+    mythprotocold MYTH_PUBLIC_VALIDATOR_ONBOARDING.md MYTH_TOKENOMICS_LAUNCH_PLAN.md
 
   DEB_ROOT="${STAGE}/deb-root"
   mkdir -p "${DEB_ROOT}/DEBIAN" "${DEB_ROOT}/usr/bin" "${DEB_ROOT}/usr/share/doc/mythprotocold"
   install -m 0755 "${STAGE}/mythprotocold" "${DEB_ROOT}/usr/bin/mythprotocold"
   install -m 0644 docs/MYTH_PUBLIC_VALIDATOR_ONBOARDING.md "${DEB_ROOT}/usr/share/doc/mythprotocold/validator-onboarding.md"
+  install -m 0644 docs/MYTH_TOKENOMICS_LAUNCH_PLAN.md "${DEB_ROOT}/usr/share/doc/mythprotocold/tokenomics-launch-plan.md"
   cat > "${DEB_ROOT}/DEBIAN/control" <<CONTROL
 Package: mythprotocold
 Version: ${DEB_VERSION}

@@ -28,6 +28,8 @@ For more information see the [monorepo for Ignite front-end development](https:/
 The MYTH-first PoS launch sequence, validator/delegator commands, and required
 public genesis/seed/RPC release fields are documented in
 [`docs/MYTH_PUBLIC_VALIDATOR_ONBOARDING.md`](docs/MYTH_PUBLIC_VALIDATOR_ONBOARDING.md).
+The current token roles, MYTH/ZYRA supplies, reward rules, phase gates, and local
+validation results are summarized in [`docs/MYTH_TOKENOMICS_LAUNCH_PLAN.md`](docs/MYTH_TOKENOMICS_LAUNCH_PLAN.md).
 The `v0.1.0-myth-phase1` development prerelease has Linux amd64/arm64 Ubuntu packages.
 Public chain ID, genesis hash, seed peers, and RPC endpoints are still pending.
 `build_validator_release.sh` prepares local packages; a package release alone does
