@@ -189,7 +189,7 @@ func New(
 	// build app
 	app.App = appBuilder.Build(db, baseAppOptions...)
 	app.BankKeeper.AppendSendRestriction(func(ctx context.Context, _, toAddr sdk.AccAddress, coins sdk.Coins) (sdk.AccAddress, error) {
-		if !coins.AmountOf(mythprotocolmoduletypes.MYTHDenom).IsPositive() &&
+		if !coins.AmountOf(mythprotocolmoduletypes.MTCDenom).IsPositive() &&
 			!coins.AmountOf(mythprotocolmoduletypes.ZYRADenom).IsPositive() {
 			return toAddr, nil
 		}

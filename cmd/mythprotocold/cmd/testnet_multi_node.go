@@ -165,7 +165,7 @@ Example:
 
 	addTestnetFlagsToCmd(cmd)
 	cmd.Flags().String(flagPorts, "", "Ports of nodes (default 26657,26654,26651,26648.. )")
-	cmd.Flags().Bool(flagEnablePoUWEmissions, false, "Enable ZYRA PoUW emissions for a Phase 2 testnet; default false is the MYTH-only launch phase")
+	cmd.Flags().Bool(flagEnablePoUWEmissions, false, "Enable ZYRA PoUW emissions for a Phase 2 testnet; default false is the MTC-only launch phase")
 	cmd.Flags().String(flagNodeDirPrefix, "validator", "Prefix the directory name for each node with (node results in node0, node1, ...)")
 	cmd.Flags().String(flagValidatorsStakeAmount, "100000000,100000000,100000000,100000000", "Amount of stake for each validator")
 	cmd.Flags().String(flagStartingIPAddress, "localhost", "Starting IP address (192.168.0.1 results in persistent peers list ID0@192.168.0.1:46656, ID1@192.168.0.2:46656, ...)")
@@ -195,7 +195,7 @@ func addTestnetFlagsToCmd(cmd *cobra.Command) {
 	cmd.Flags().Int(flagNumValidators, 4, "Number of validators to initialize the testnet with")
 	cmd.Flags().StringP(flagOutputDir, "o", "./.testnets", "Directory to store initialization data for the testnet")
 	cmd.Flags().String(flags.FlagChainID, "", "genesis file chain-id, if left blank will be randomly created")
-	cmd.Flags().String(server.FlagMinGasPrices, "0.0001umyth,0.0001uzyra", "Minimum gas prices; Phase 1 accepts MYTH only, and governance activation enables uzyra fees")
+	cmd.Flags().String(server.FlagMinGasPrices, "0.0001umtc,0.0001uzyra", "Minimum gas prices; Phase 1 accepts MTC only, and governance activation enables uzyra fees")
 	cmd.Flags().String(flags.FlagKeyType, string(hd.Secp256k1Type), "Key signing algorithm to generate keys for")
 
 	// support old flags name for backwards compatibility
@@ -238,7 +238,7 @@ func initTestnetFiles(
 		persistentPeers string
 		gentxsFiles     []string
 	)
-	mythAllocationBase := mythtypes.MYTHValidatorAllocation * mythtypes.MYTHDecimals
+	mythAllocationBase := mythtypes.MTCValidatorAllocation * mythtypes.MTCDecimals
 	mythPerValidator := mythAllocationBase / uint64(args.numValidators)
 	mythRemainder := mythAllocationBase % uint64(args.numValidators)
 
@@ -326,9 +326,9 @@ func initTestnetFiles(
 		if !ok {
 			valTokens = sdk.NewCoin(sdk.DefaultBondDenom, sdk.TokensFromConsensusPower(100, sdk.DefaultPowerReduction))
 		}
-		if valTokens.Denom != mythtypes.MYTHDenom || !valTokens.Amount.IsPositive() ||
+		if valTokens.Denom != mythtypes.MTCDenom || !valTokens.Amount.IsPositive() ||
 			valTokens.Amount.GT(math.NewIntFromUint64(accStakingAmount)) {
-			return fmt.Errorf("validator %s self-bond must be positive %s and no greater than its MYTH genesis allocation", nodeDirName, mythtypes.MYTHDenom)
+			return fmt.Errorf("validator %s self-bond must be positive %s and no greater than its MTC genesis allocation", nodeDirName, mythtypes.MTCDenom)
 		}
 		createValMsg, err := stakingtypes.NewMsgCreateValidator(
 			sdk.ValAddress(addr).String(),
@@ -444,10 +444,21 @@ func initGenFiles(
 	// set the balances in the genesis state
 	var bankGenState banktypes.GenesisState
 	clientCtx.Codec.MustUnmarshalJSON(appGenState[banktypes.ModuleName], &bankGenState)
+	bankGenState.DenomMetadata = []banktypes.Metadata{{
+		Description: "Mythchain MTC staking and base-fee token",
+		DenomUnits: []*banktypes.DenomUnit{
+			{Denom: mythtypes.MTCDenom, Exponent: 0},
+			{Denom: "mtc", Exponent: uint32(mythtypes.MTCDecimals)},
+		},
+		Base:    mythtypes.MTCDenom,
+		Display: "mtc",
+		Name:    "Mythchain Token",
+		Symbol:  "MTC",
+	}}
 
 	bankGenState.Balances = banktypes.SanitizeGenesisBalances(genBalances)
 	treasuryAddress := authtypes.NewModuleAddress(distrtypes.ModuleName)
-	mythTreasury := sdk.NewCoin(mythtypes.MYTHDenom, math.NewIntFromUint64(mythtypes.MYTHTreasuryAllocation*mythtypes.MYTHDecimals))
+	mythTreasury := sdk.NewCoin(mythtypes.MTCDenom, math.NewIntFromUint64(mythtypes.MTCTreasuryAllocation*mythtypes.MTCDecimals))
 	bankGenState.Balances = banktypes.SanitizeGenesisBalances(append(bankGenState.Balances,
 		banktypes.Balance{Address: treasuryAddress.String(), Coins: sdk.NewCoins(mythTreasury)}))
 	for _, bal := range bankGenState.Balances {
@@ -462,8 +473,8 @@ func initGenFiles(
 
 	var mintGenState minttypes.GenesisState
 	clientCtx.Codec.MustUnmarshalJSON(appGenState[minttypes.ModuleName], &mintGenState)
-	mintGenState.Params.MintDenom = mythtypes.MYTHDenom
-	mintGenState.Params.MaxSupply = math.NewIntFromUint64(mythtypes.MYTHMaxSupply * mythtypes.MYTHDecimals)
+	mintGenState.Params.MintDenom = mythtypes.MTCDenom
+	mintGenState.Params.MaxSupply = math.NewIntFromUint64(mythtypes.MTCMaxSupply * mythtypes.MTCDecimals)
 	mintGenState.Params.InflationRateChange = math.LegacyZeroDec()
 	mintGenState.Params.InflationMax = math.LegacyZeroDec()
 	mintGenState.Params.InflationMin = math.LegacyZeroDec()

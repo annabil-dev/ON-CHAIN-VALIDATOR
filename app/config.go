@@ -1,11 +1,13 @@
 package app
 
-import sdk "github.com/cosmos/cosmos-sdk/types"
+import (
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	mythtypes "mythprotocol/x/mythprotocol/types"
+)
 
 func init() {
-	// Set bond denom
-
-	sdk.DefaultBondDenom = "umyth"
+	// MTC is the L1 bond and base-fee token; Mythchain remains the network name.
+	sdk.DefaultBondDenom = mythtypes.MTCDenom
 
 	// Set address prefixes
 	accountPubKeyPrefix := AccountAddressPrefix + "pub"

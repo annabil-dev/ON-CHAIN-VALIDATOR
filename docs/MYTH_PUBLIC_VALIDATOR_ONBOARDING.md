@@ -1,33 +1,30 @@
 # MYTH Public Validator and Delegator Onboarding
 
-**Status: commission-configurable validator prerelease available; public network not
-launched.** `v0.1.2-myth-phase1` contains the updated amd64/arm64 Ubuntu packages. The
-older `v0.1.1-myth-phase1` package hardcodes 100% commission and must not be used for
-this production gentx. Launch preparation is using chain ID `myth-mainnet-1` and
-founder mini-PC public IP `114.10.44.157`; the canonical genesis/checksum, seed
-address, and RPC endpoint have not yet been published. Do not use local `.testnets`
-files or local test keys for a public network.
+**Status: MTC base-denom migration in progress.** `v0.1.3-myth-phase1` changes the
+L1 bond and base-fee denom from `umyth` to `umtc` (display symbol MTC). The running
+`umyth` state/genesis is incompatible with this binary. A fresh MTC genesis and new
+chain ID are required; seed/RPC details for the reset network are not yet published.
 
-## MYTH and ZYRA roles
+## MTC and ZYRA roles
 
-- **MYTH (`umyth`)** is the proof-of-stake bond/security token. MYTH has a 21M hard
+- **MTC (`umtc`)** is the proof-of-stake bond/security token. MTC has a 21M hard
   cap, fully allocated at genesis: 1M to the founder's mini-PC genesis-validator account and
-  20M locked in the distribution Community Pool/Treasury. MYTH is not inflated after
+  20M locked in the distribution Community Pool/Treasury. MTC is not inflated after
   genesis. At launch, validator/delegator rewards come from transaction fees; any
   later Treasury distribution requires on-chain governance.
 - **ZYRA (`uzyra`)** is the separate PoUW task-reward token. It starts at zero and
-  remains inactive during the MYTH-only stabilization phase. A coordinated upgrade
+  remains inactive during the MTC-only stabilization phase. A coordinated upgrade
   enables its emissions after the base chain passes its stability gate.
-- Phase 1 network fees are paid in MYTH. After ZYRA activation, the chain accepts
-  either MYTH or ZYRA for fees. Gasless access is limited to one transaction per
+- Phase 1 network fees are paid in MTC. After ZYRA activation, the chain accepts
+  either MTC or ZYRA for fees. Gasless access is limited to one transaction per
   minute while the account has zero balance in all currently accepted fee denoms;
   a positive balance in either accepted fee denom revokes gasless permanently.
 
-MYTH is sold/distributed by the founder outside the validator software. Validator
+MTC is sold/distributed by the founder outside the validator software. Validator
 software does not custody keys or sell tokens. A prospective operator first obtains
-MYTH, funds an account, and then self-bonds through the standard staking transaction.
+MTC, funds an account, and then self-bonds through the standard staking transaction.
 The initial public genesis allocation is planned for the founder's mini-PC
-genesis-validator account (1M MYTH); future operators acquire MYTH from the founder
+genesis-validator account (1M MTC); future operators acquire MTC from the founder
 and join through staking. The 20M Community Pool cannot be spent without on-chain
 governance approval.
 
@@ -37,19 +34,19 @@ The official release page must publish and sign-off all of the following:
 
 | Artifact/configuration | Public launch value |
 |---|---|
-| Chain ID | `myth-mainnet-1` |
+| Chain ID for fresh MTC genesis | `<NEW_MTC_CHAIN_ID>` (do not reset under `myth-mainnet-1`) |
 | Founder mini-PC public IP | `114.10.44.157` |
-| Founder genesis self-bond | `1000000000000umyth` (1,000,000 MYTH) |
+| Founder genesis allocation / self-bond | 1,000,000 MTC allocation; 800,000 MTC bonded; 200,000 MTC liquid |
 | Genesis validator commission | 5% rate / 6% max / 1 percentage point max-change |
-| Validator package | `v0.1.2-myth-phase1` (commission-configurable prerelease) |
+| Validator package | `v0.1.3-myth-phase1` (`umtc` base denom) |
 | Canonical genesis JSON and SHA-256 | `<GENESIS_URL>` / `<GENESIS_SHA256>` |
 | Seed/persistent peer addresses | `<SEED_ID>@<SEED_IP>:26656` |
 | RPC endpoint for tx/query | `<RPC_URL>` |
-| Minimum gas-price config (both configured from Phase 1; ZYRA fee use gated until Phase 2) | `<MIN_GAS_PRICE_UMYTH>,<MIN_GAS_PRICE_UZYRA>` |
-| Bond denom | `umyth` |
+| Minimum gas-price config (both configured from Phase 1; ZYRA fee use gated until Phase 2) | `<MIN_GAS_PRICE_UMTC>,<MIN_GAS_PRICE_UZYRA>` |
+| Bond denom | `umtc` |
 
 Do not announce these placeholders as working public endpoints. The initial
-validator set, 1,000,000 MYTH founder self-bond, Treasury governance process,
+validator set, founder allocation/bond split, Treasury governance process,
 unbonding, commission, and slashing parameters must be approved in the public genesis
 manifest. The genesis builder defaults to a 5% commission rate, 6% maximum, and
 1-percentage-point maximum change; these can be explicitly set on the command line.
@@ -67,7 +64,7 @@ release tag; GitHub Actions runs tests, builds both Ubuntu architectures, and pu
 the prerelease:
 
 ```powershell
-python release_mythchain.py v0.1.2-myth-phase1
+python release_mythchain.py v0.1.3-myth-phase1
 ```
 
 The script asks for confirmation unless `--yes` is supplied and waits for the Actions
@@ -80,8 +77,8 @@ On Ubuntu, use `uname -m`: `x86_64` selects `amd64`; `aarch64` selects `arm64`.
 Download, verify, and install the amd64 package:
 
 ```sh
-VERSION=0.1.2-myth-phase1
-TAG=v0.1.2-myth-phase1
+VERSION=0.1.3-myth-phase1
+TAG=v0.1.3-myth-phase1
 wget "https://github.com/annabil-dev/ON-CHAIN-VALIDATOR/releases/download/${TAG}/mythprotocold_${VERSION}_amd64.deb"
 wget "https://github.com/annabil-dev/ON-CHAIN-VALIDATOR/releases/download/${TAG}/mythprotocold_${VERSION}_amd64.deb.sha256"
 sha256sum -c "mythprotocold_${VERSION}_amd64.deb.sha256"
@@ -93,11 +90,33 @@ For `aarch64`, replace `_amd64.deb` with `_arm64.deb` in the download, checksum,
 install commands. Installing the package alone does not create or connect to the
 public chain.
 
+## Stop and retire the old `umyth` state
+
+Changing a denom in the binary does not convert balances or rewrite a genesis file.
+Stop **every** validator running the old chain before preparing the new MTC genesis.
+If a validator is managed by systemd, stop its actual unit; if it runs in a terminal,
+stop that process with Ctrl+C. Back up the old genesis and private keys securely for
+recovery, but do not reuse the old `umyth` genesis on MTC.
+
+For the old local home, reset CometBFT data/WAL after stopping its node:
+
+```sh
+export OLD_MYTH_HOME="$HOME/.mythprotocol" # replace with the actual old --home
+mythprotocold comet unsafe-reset-all --home "$OLD_MYTH_HOME"
+```
+
+This resets local CometBFT state; it does **not** convert `umyth` balances or create
+the new MTC genesis. Retire that old home and use the fresh `MYTH_GENESIS_DIR/validator0`
+created below. Repeat the reset/backup on each old validator, and do not restart any
+old home. All validators joining the replacement network must use the same new MTC
+genesis and a **new chain ID**. `myth-mainnet-2` is an example; confirm the exact ID
+before generating or publishing genesis.
+
 ## Initialize and sync a full node
 
 ```sh
-export MYTH_HOME="$HOME/.mythprotocol"
-export MYTH_CHAIN_ID="myth-mainnet-1"
+export MYTH_HOME="$HOME/.mythprotocol-mtc"
+export MYTH_CHAIN_ID="<NEW_MTC_CHAIN_ID>" # choose a fresh ID; do not reuse the old umyth chain ID
 
 mythprotocold init "<NODE_MONIKER>" --chain-id "$MYTH_CHAIN_ID" --home "$MYTH_HOME"
 ```
@@ -105,8 +124,8 @@ mythprotocold init "<NODE_MONIKER>" --chain-id "$MYTH_CHAIN_ID" --home "$MYTH_HO
 Add the released persistent peer/seed information to
 `$MYTH_HOME/config/config.toml`. Configure RPC access according to the public
 operator guide; do not expose unsafe RPC methods to the public internet. Set Phase 1
-`minimum-gas-prices` in `$MYTH_HOME/config/app.toml` to the published MYTH and ZYRA
-prices. Phase 1 ante accepts MYTH only; uzyra fees are rejected until governance
+`minimum-gas-prices` in `$MYTH_HOME/config/app.toml` to the published MTC and ZYRA
+prices. Phase 1 ante accepts MTC only; uzyra fees are rejected until governance
 enables Phase 2 PoUW. Keeping both min prices configured avoids an app.toml restart
 when Phase 2 is activated.
 
@@ -123,15 +142,16 @@ validator and is in the active validator set.
 
 ## Founder mini-PC: prepare the genesis validator
 
-The founder's mini-PC is intended to be the first genesis validator. The confirmed
-launch parameters are chain ID `myth-mainnet-1`, public IP `114.10.44.157`, and a full
-1,000,000 MYTH self-bond. On that mini-PC, use the purpose-built MYTH genesis builder:
+The founder's mini-PC is intended to be the first genesis validator. The new MTC
+genesis needs a fresh chain ID (example `myth-mainnet-2`), public IP `114.10.44.157`,
+a 1,000,000 MTC allocation, and an 800,000 MTC self-bond, leaving 200,000 MTC liquid.
+Confirm the new chain ID before generating genesis.
 
 ```sh
-export MYTH_GENESIS_DIR="$HOME/myth-genesis"
-export MYTH_CHAIN_ID="myth-mainnet-1" # immutable once genesis is published
+export MYTH_GENESIS_DIR="$HOME/myth-mainnet-mtc-genesis"
+export MYTH_CHAIN_ID="<NEW_MTC_CHAIN_ID>" # do not reuse the old umyth chain ID
 export MYTH_PUBLIC_IP="114.10.44.157"
-export FOUNDER_SELF_BOND="1000000000000" # 1,000,000 MYTH in umyth; this flag takes an integer, without the denom suffix
+export FOUNDER_SELF_BOND="800000000000" # 800,000 MTC in umtc; integer base units, no denom suffix
 
 if [ -e "$MYTH_GENESIS_DIR" ]; then
   echo "Refusing to overwrite existing genesis directory: $MYTH_GENESIS_DIR" >&2
@@ -147,24 +167,24 @@ mythprotocold multi-node --v 1 \
   --commission-max-rate 0.06 \
   --commission-max-change-rate 0.01 \
   --keyring-backend file \
-  --minimum-gas-prices "0.0001umyth,0.0001uzyra"
+  --minimum-gas-prices "0.0001umtc,0.0001uzyra"
 ```
 
 Run this interactively on the mini-PC; the encrypted `file` keyring asks you to set
 and confirm its passphrase. This builder performs the node initialization, operator
-key creation, MYTH genesis allocation, gentx creation/signing, and genesis collection
+key creation, MTC genesis allocation, gentx creation/signing, and genesis collection
 as one coordinated operation. Do not also run separate `init`, `keys add`,
 `add-genesis-account`, or `gentx` commands for this node; that would duplicate steps
-or bypass the MYTH Treasury/supply setup. In non-test keyring modes the builder does
+or bypass the MTC Treasury/supply setup. In non-test keyring modes the builder does
 not add fake `testtoken` balances or write the wallet mnemonic to plaintext.
 
 The `multi-node --v 1` builder creates the validator/operator key with the encrypted
-file keyring, node/consensus keys, MYTH genesis allocation, 20M Community Pool, mint
+file keyring, node/consensus keys, MTC genesis allocation, 20M Community Pool, mint
 cap, Phase 1 gas configuration, and a signed genesis gentx. It does not save a
-plaintext mnemonic in file-keyring mode. The requested self-bond is the full 1M MYTH
-founder allocation, so none of that allocation remains liquid after the gentx is
-applied. Change the amount only if the public genesis manifest is revised before
-finalization.
+plaintext mnemonic in file-keyring mode. The gentx bonds 800,000 of the founder's
+1,000,000 MTC allocation; approximately 200,000 MTC remains liquid in the founder
+account after the gentx is applied. Change the amount only if the public genesis
+manifest is revised before finalization.
 
 The generated genesis is at
 `$MYTH_GENESIS_DIR/validator0/config/genesis.json`; the signed gentx is in
@@ -187,7 +207,7 @@ mythprotocold start --home "$MYTH_HOME" \
   --p2p.external-address "${MYTH_PUBLIC_IP}:26656"
 ```
 
-The first validator is a single point of failure until additional MYTH-funded
+The first validator is a single point of failure until additional MTC-funded
 validators join. Their approved genesis/start instructions and seed list must be
 published before onboarding them.
 
@@ -195,7 +215,7 @@ published before onboarding them.
 
 Keep the validator consensus key on the validator host and back it up securely.
 Never send its private key or the wallet recovery phrase to the project team. Fund a
-separate operator account with the approved MYTH self-bond and transaction-fee
+separate operator account with the approved MTC self-bond and transaction-fee
 balance. Get the consensus public key from the local daemon:
 
 ```sh
@@ -207,7 +227,7 @@ Create `validator.json` using that public key and an approved self-bond amount:
 ```json
 {
   "pubkey": {"@type":"/cosmos.crypto.ed25519.PubKey","key":"<CONSENSUS_PUBKEY>"},
-  "amount": "<SELF_BOND_UMYTH>umyth",
+  "amount": "<SELF_BOND_UMTC>umtc",
   "moniker": "<NODE_MONIKER>",
   "identity": "",
   "website": "",
@@ -226,24 +246,24 @@ Phase 1 values:
 ```sh
 mythprotocold tx staking create-validator ./validator.json \
   --from <OPERATOR_KEY> --chain-id "$MYTH_CHAIN_ID" \
-  --node "<RPC_URL>" --gas auto --gas-prices "<MIN_GAS_PRICE_UMYTH>" --yes \
+  --node "<RPC_URL>" --gas auto --gas-prices "<MIN_GAS_PRICE_UMTC>" --yes \
   --home "$MYTH_HOME"
 ```
 
 Monitor validator status, signing activity, missed blocks, jailed status, and
 delegations. Validators earn transaction-fee distributions; there is no ongoing
-MYTH inflation. Double-signing and downtime penalties follow the published slashing
+MTC inflation. Double-signing and downtime penalties follow the published slashing
 parameters.
 
 ## Join as a delegator
 
-A delegator does not need to run a validator node. After acquiring MYTH and selecting
+A delegator does not need to run a validator node. After acquiring MTC and selecting
 a bonded validator:
 
 ```sh
-mythprotocold tx staking delegate <VALIDATOR_OPERATOR_ADDRESS> <AMOUNT>umyth \
+mythprotocold tx staking delegate <VALIDATOR_OPERATOR_ADDRESS> <AMOUNT>umtc \
   --from <DELEGATOR_KEY> --chain-id "$MYTH_CHAIN_ID" \
-  --node "<RPC_URL>" --gas auto --gas-prices "<MIN_GAS_PRICE_UMYTH>" --yes \
+  --node "<RPC_URL>" --gas auto --gas-prices "<MIN_GAS_PRICE_UMTC>" --yes \
   --home "$MYTH_HOME"
 
 mythprotocold query staking delegations <DELEGATOR_ADDRESS> --node "<RPC_URL>"
@@ -255,8 +275,8 @@ delegating.
 
 ## Phase 2: enable ZYRA PoUW
 
-The MYTH-only chain must first pass the public stability/upgrade review. Then all
+The MTC-only chain must first pass the public stability/upgrade review. Then all
 validators coordinate the approved binary/schema upgrade and governance activation
-of ZYRA emissions. Phase 2 accepts fees in either `umyth` or `uzyra`; the MYTH
+of ZYRA emissions. Phase 2 accepts fees in either `umtc` or `uzyra`; the MTC
 staking denom remains unchanged. Public ZYRA emission parameters and the activation
 height are published in the upgrade proposal before activation.

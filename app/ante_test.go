@@ -22,8 +22,11 @@ func TestAppBuildsWithGaslessAnteFeeChecker(t *testing.T) {
 }
 
 func TestGasFeeDenomActivationFollowsPoUWPhase(t *testing.T) {
-	if !feeDenomAllowed(false, "umyth") {
-		t.Fatal("umyth fees must be allowed in the MYTH-only phase")
+	if !feeDenomAllowed(false, "umtc") {
+		t.Fatal("umtc fees must be allowed in the MTC-only phase")
+	}
+	if feeDenomAllowed(false, "umyth") || feeDenomAllowed(true, "umyth") {
+		t.Fatal("legacy umyth fees must not be accepted")
 	}
 	if feeDenomAllowed(false, "uzyra") {
 		t.Fatal("uzyra fees must be disabled before PoUW activation")

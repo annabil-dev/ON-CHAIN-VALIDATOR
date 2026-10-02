@@ -132,12 +132,12 @@ def wait_for_release(tag: str, commit: str, timeout_seconds: int = 600) -> str:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("tag", help="Release tag, e.g. v0.1.2-myth-phase1")
+    parser.add_argument("tag", help="Release tag, e.g. v0.1.3-myth-phase1")
     parser.add_argument("--yes", action="store_true", help="Skip the release confirmation prompt")
     args = parser.parse_args()
 
     if not TAG_PATTERN.fullmatch(args.tag):
-        parser.error("tag must look like v0.1.2-myth-phase1")
+        parser.error("tag must look like v0.1.3-myth-phase1")
 
     try:
         assert_clean_worktree()

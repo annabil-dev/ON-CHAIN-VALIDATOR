@@ -48,8 +48,8 @@ func (app *App) txFeeChecker(ctx sdk.Context, tx sdk.Tx) (sdk.Coins, int64, erro
 		}
 		return sdk.NewCoins(), 0, nil
 	}
-	if len(fees) != 1 || (fees[0].Denom != types.MYTHDenom && fees[0].Denom != types.ZYRADenom) {
-		return nil, 0, fmt.Errorf("gas fees must be paid in umyth or uzyra")
+	if len(fees) != 1 || (fees[0].Denom != types.MTCDenom && fees[0].Denom != types.ZYRADenom) {
+		return nil, 0, fmt.Errorf("gas fees must be paid in %s or %s", types.MTCDenom, types.ZYRADenom)
 	}
 	if fees[0].Denom == types.ZYRADenom {
 		params, err := app.MythprotocolKeeper.Params.Get(ctx)
@@ -79,7 +79,7 @@ func (app *App) txFeeChecker(ctx sdk.Context, tx sdk.Tx) (sdk.Coins, int64, erro
 }
 
 func feeDenomAllowed(pouwEnabled bool, denom string) bool {
-	return denom == types.MYTHDenom || (pouwEnabled && denom == types.ZYRADenom)
+	return denom == types.MTCDenom || (pouwEnabled && denom == types.ZYRADenom)
 }
 
 func (app *App) transactionSigners(ctx sdk.Context, tx sdk.Tx) ([][]byte, []string, error) {
@@ -102,7 +102,7 @@ func (app *App) transactionSigners(ctx sdk.Context, tx sdk.Tx) ([][]byte, []stri
 		}
 		addresses = append(addresses, address)
 		balances := app.BankKeeper.GetAllBalances(ctx, sdk.AccAddress(signer))
-		if balances.AmountOf(types.MYTHDenom).IsPositive() || balances.AmountOf(types.ZYRADenom).IsPositive() {
+		if balances.AmountOf(types.MTCDenom).IsPositive() || balances.AmountOf(types.ZYRADenom).IsPositive() {
 			if err := app.MythprotocolKeeper.RevokeGasless(ctx, address); err != nil {
 				return nil, nil, fmt.Errorf("failed to revoke gasless access for funded account: %w", err)
 			}

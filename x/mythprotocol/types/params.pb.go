@@ -26,7 +26,7 @@ const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
 
 // Params defines the parameters for the module.
 type Params struct {
-	// enable_pouw_emissions activates ZYRA minting after the MYTH-only base-chain phase.
+	// enable_pouw_emissions activates ZYRA minting after the MTC-only base-chain phase.
 	EnablePouwEmissions bool `protobuf:"varint,1,opt,name=enable_pouw_emissions,json=enablePouwEmissions,proto3" json:"enable_pouw_emissions,omitempty"`
 }
 

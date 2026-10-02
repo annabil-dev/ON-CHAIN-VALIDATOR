@@ -23,17 +23,17 @@ This command can be run within your scaffolded blockchain project.
 
 For more information see the [monorepo for Ignite front-end development](https://github.com/ignite/web).
 
-## MYTH public validator rollout (draft)
+## MTC base-denom migration and validator rollout
 
-The MYTH-first PoS launch sequence, validator/delegator commands, and required
-public genesis/seed/RPC release fields are documented in
+The MTC (`umtc`) PoS launch sequence, validator/delegator commands, and required
+genesis/seed/RPC release fields are documented in
 [`docs/MYTH_PUBLIC_VALIDATOR_ONBOARDING.md`](docs/MYTH_PUBLIC_VALIDATOR_ONBOARDING.md).
-The current token roles, MYTH/ZYRA supplies, reward rules, phase gates, and local
+The current token roles, MTC/ZYRA supplies, reward rules, phase gates, and local
 validation results are summarized in [`docs/MYTH_TOKENOMICS_LAUNCH_PLAN.md`](docs/MYTH_TOKENOMICS_LAUNCH_PLAN.md).
-The `v0.1.1-myth-phase1` development prerelease has Linux amd64/arm64 Ubuntu packages.
-Public chain ID, genesis hash, seed peers, and RPC endpoints are still pending.
-`build_validator_release.sh` prepares local packages; a package release alone does
-not launch or configure the public chain.
+The upcoming `v0.1.3-myth-phase1` release changes the bond/base-fee denom from `umyth`
+to `umtc`. It requires a fresh genesis and new chain ID; the previous `umyth` genesis
+and checksum cannot be reused. The package release alone does not migrate or launch a
+chain.
 
 ## Release
 To release a new version of your blockchain, create and push a new tag with `v` prefix. A new draft release with the configured targets will be created.

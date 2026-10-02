@@ -7,7 +7,7 @@ const (
 	ModuleName     = "mythprotocol"
 	PoUWModuleName = "pouw"
 	ZYRADenom      = "uzyra"
-	MYTHDenom      = "umyth"
+	MTCDenom       = "umtc"
 
 	// StoreKey defines the primary module store key
 	StoreKey = ModuleName
@@ -17,11 +17,11 @@ const (
 	// See: https://github.com/cosmos/cosmos-sdk/blob/v0.52.0-beta.2/x/gov/types/keys.go#L9
 	GovModuleName = "gov"
 
-	MaxTaskLeaseBlocks      uint64 = 10000
-	MYTHDecimals            uint64 = 1_000_000
-	MYTHMaxSupply           uint64 = 21_000_000
-	MYTHValidatorAllocation uint64 = 1_000_000
-	MYTHTreasuryAllocation  uint64 = 20_000_000
+	MaxTaskLeaseBlocks     uint64 = 10000
+	MTCDecimals            uint64 = 1_000_000
+	MTCMaxSupply           uint64 = 21_000_000
+	MTCValidatorAllocation uint64 = 1_000_000
+	MTCTreasuryAllocation  uint64 = 20_000_000
 )
 
 // ParamsKey is the prefix to retrieve all Params

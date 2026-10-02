@@ -10,6 +10,6 @@ option go_package = "mythprotocol/x/mythprotocol/types";
 message Params {
   option (amino.name) = "mythprotocol/x/mythprotocol/Params";
   option (gogoproto.equal) = true;
-  // enable_pouw_emissions activates ZYRA minting after the MYTH-only base-chain phase.
+  // enable_pouw_emissions activates ZYRA minting after the MTC-only base-chain phase.
   bool enable_pouw_emissions = 1;
 }

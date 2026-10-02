@@ -1,17 +1,17 @@
-# Development-only Ignite config. Public MYTH genesis allocation is generated and
+# Development-only Ignite config. Public MTC genesis allocation is generated and
 # validated separately; do not use these sample accounts for the public launch.
 version: 1
 validation: sovereign
-default_denom: umyth
+default_denom: umtc
 accounts:
 - name: alice
   coins:
   - 20000token
-  - 200000000umyth
+  - 200000000umtc
 - name: bob
   coins:
   - 10000token
-  - 100000000umyth
+  - 100000000umtc
 client:
   openapi:
     path: docs/static/openapi.json
@@ -19,11 +19,11 @@ faucet:
   name: bob
   coins:
   - 5token
-  - 100000umyth
+  - 100000umtc
 validators:
 - name: alice
-  bonded: 100000000umyth
+  bonded: 100000000umtc
 - name: validator1
-  bonded: 200000000umyth
+  bonded: 200000000umtc
 - name: validator2
-  bonded: 100000000umyth
+  bonded: 100000000umtc
