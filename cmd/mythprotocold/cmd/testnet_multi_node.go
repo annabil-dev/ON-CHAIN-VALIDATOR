@@ -555,7 +555,7 @@ func collectGenFiles(
 		nodeConfig.BaseConfig.ProxyApp = "tcp://127.0.0.1:" + strconv.Itoa(26658-3*i)
 		nodeConfig.Instrumentation.PrometheusListenAddr = ":" + strconv.Itoa(26660+i)
 		nodeConfig.Instrumentation.Prometheus = true
-		cmtconfig.WriteConfigFile(filepath.Join(nodeConfig.RootDir, "config", "config.toml"), nodeConfig)
+		writeMultiNodeConfig(filepath.Join(nodeConfig.RootDir, "config", "config.toml"), nodeConfig)
 		if appState == nil {
 			// set the canonical application state (they should not differ)
 			appState = nodeAppState
@@ -571,6 +571,18 @@ func collectGenFiles(
 	}
 
 	return nil
+}
+
+// writeMultiNodeConfig enforces the network's node-file defaults at the final
+// serialization point. `multi-node` can receive config loaded from an existing
+// home, so changing only initCometBFTConfig is not enough.
+func writeMultiNodeConfig(path string, nodeConfig *cmtconfig.Config) {
+	nodeConfig.Consensus.TimeoutCommit = time.Minute
+	nodeConfig.Consensus.SkipTimeoutCommit = false
+	nodeConfig.Consensus.CreateEmptyBlocks = true
+	nodeConfig.Consensus.CreateEmptyBlocksInterval = 0
+	nodeConfig.RPC.CORSAllowedOrigins = []string{"*"}
+	cmtconfig.WriteConfigFile(path, nodeConfig)
 }
 
 func copyFile(src, dstDir string) (int64, error) {

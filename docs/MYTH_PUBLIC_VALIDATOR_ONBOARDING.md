@@ -1,7 +1,8 @@
 # MYTH Public Validator and Delegator Onboarding
 
-**Status:** Mythchain MTC `v0.1.4-myth-phase1` keeps the `umtc` bond/base-fee denom
-and sets the default CometBFT `timeout_commit` to 60 seconds. The operator reports
+**Status:** Mythchain MTC `v0.1.5-myth-phase1` keeps the `umtc` bond/base-fee denom,
+and the `multi-node` builder writes a 60-second CometBFT `timeout_commit` plus wildcard
+CORS origins into each generated `config.toml`. The operator reports
 `myth-testnet-1` is live at block 11; verify the canonical genesis checksum and peer
 configuration with the network operator before joining. The old `umyth` genesis is
 incompatible and must not be reused.
@@ -39,7 +40,7 @@ The official release page must publish and sign-off all of the following:
 | Founder mini-PC public IP | `114.10.44.157` |
 | Founder genesis allocation / self-bond | 1,000,000 MTC allocation; 800,000 MTC bonded; 200,000 MTC liquid |
 | Genesis validator commission | 5% rate / 6% max / 1 percentage point max-change |
-| Validator package | `v0.1.4-myth-phase1` (`umtc` base denom; 60-second block cadence default) |
+| Validator package | `v0.1.5-myth-phase1` (`umtc`; multi-node writes 60-second cadence and CORS `*`) |
 | Canonical genesis JSON and SHA-256 | `<GENESIS_URL>` / `<GENESIS_SHA256>` |
 | Seed/persistent peer addresses | `<SEED_ID>@<SEED_IP>:26656` |
 | RPC endpoint for tx/query | `<RPC_URL>` |
@@ -65,7 +66,7 @@ release tag; GitHub Actions runs tests, builds both Ubuntu architectures, and pu
 the prerelease:
 
 ```powershell
-python release_mythchain.py v0.1.4-myth-phase1
+python release_mythchain.py v0.1.5-myth-phase1
 ```
 
 The script asks for confirmation unless `--yes` is supplied and waits for the Actions
@@ -78,8 +79,8 @@ On Ubuntu, use `uname -m`: `x86_64` selects `amd64`; `aarch64` selects `arm64`.
 Download, verify, and install the amd64 package:
 
 ```sh
-VERSION=0.1.4-myth-phase1
-TAG=v0.1.4-myth-phase1
+VERSION=0.1.5-myth-phase1
+TAG=v0.1.5-myth-phase1
 wget "https://github.com/annabil-dev/ON-CHAIN-VALIDATOR/releases/download/${TAG}/mythprotocold_${VERSION}_amd64.deb"
 wget "https://github.com/annabil-dev/ON-CHAIN-VALIDATOR/releases/download/${TAG}/mythprotocold_${VERSION}_amd64.deb.sha256"
 sha256sum -c "mythprotocold_${VERSION}_amd64.deb.sha256"
@@ -93,10 +94,14 @@ public chain.
 
 ## Target one block per minute
 
-The `v0.1.4-myth-phase1` node config default sets CometBFT `timeout_commit` to `60s`,
-keeps empty blocks enabled, and sets `create_empty_blocks_interval = "0s"`. This makes
+The `v0.1.5-myth-phase1` `multi-node` builder forcibly writes CometBFT
+`timeout_commit = "60s"`, `skip_timeout_commit = false`, `create_empty_blocks = true`,
+and `create_empty_blocks_interval = "0s"` in every generated node config. This makes
 60 seconds the target/minimum wait between heights; consensus/network delays can make
 blocks slower. All validators in a network should use the same timeout.
+
+It also writes `cors_allowed_origins = ["*"]` for the CometBFT RPC. CORS only controls
+browser-origin requests; RPC listen address/firewall still determine network reachability.
 
 Existing node homes are not rewritten when the package is upgraded. Back up
 `$MYTH_HOME/config/config.toml` and edit the existing `[consensus]` section on every
