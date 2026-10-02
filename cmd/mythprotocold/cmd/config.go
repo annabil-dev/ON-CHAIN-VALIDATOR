@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"time"
+
 	cmtcfg "github.com/cometbft/cometbft/config"
 	serverconfig "github.com/cosmos/cosmos-sdk/server/config"
 )
@@ -9,6 +11,11 @@ import (
 // return cmtcfg.DefaultConfig if no custom configuration is required for the application.
 func initCometBFTConfig() *cmtcfg.Config {
 	cfg := cmtcfg.DefaultConfig()
+	// Target approximately one block per minute. With empty blocks enabled,
+	// timeout_commit is the minimum wait before the next height begins.
+	cfg.Consensus.TimeoutCommit = time.Minute
+	cfg.Consensus.CreateEmptyBlocks = true
+	cfg.Consensus.CreateEmptyBlocksInterval = 0
 
 	// these values put a higher strain on node memory
 	// cfg.P2P.MaxNumInboundPeers = 100
