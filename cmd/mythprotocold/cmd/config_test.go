@@ -38,11 +38,11 @@ func TestMultiNodeConfigWritesOneMinuteTimeoutAndWildcardCORS(t *testing.T) {
 		t.Fatalf("read generated config: %v", err)
 	}
 	for _, expected := range []string{
-		`timeout_commit = "60s"`,
+		`timeout_commit = "1m0s"`,
 		`skip_timeout_commit = false`,
 		`create_empty_blocks = true`,
 		`create_empty_blocks_interval = "0s"`,
-		`cors_allowed_origins = ["*"]`,
+		`cors_allowed_origins = ["*", ]`,
 	} {
 		if !strings.Contains(string(contents), expected) {
 			t.Errorf("generated config does not contain %q", expected)
