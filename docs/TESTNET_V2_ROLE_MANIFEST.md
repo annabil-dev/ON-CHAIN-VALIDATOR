@@ -56,6 +56,18 @@
    Satu drip per alamat; alamat + tanggal dicatat publik.
 3. ZYRA tidak didistribusikan manual (supply genesis nol) — tester memperolehnya
    hanya lewat payout Miner/Judge setelah emisi dinyalakan.
+4. Perintah drip (dijalankan di founder, 1 MTC = `1000000umtc`):
+
+   ```sh
+   mythprotocold tx bank send validator0 <ALAMAT_TESTER> 1000000umtc \
+     --chain-id mythchain-testnet-v2 \
+     --home "$HOME/mythchain-testnet-v2-20261008-180035/validator0" \
+     --keyring-backend file --fees 200umtc --broadcast-mode sync \
+     --node tcp://127.0.0.1:26657
+   ```
+
+   Ganti `<ALAMAT_TESTER>` dan sesuaikan `--home` dengan node home founder.
+   Verifikasi dengan `mythprotocold query bank balances <ALAMAT_TESTER>`.
 
 ## Kebijakan reset testnet
 
