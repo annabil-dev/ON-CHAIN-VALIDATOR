@@ -3,8 +3,7 @@
 Quick path (recommended):
 
 ```powershell
-Set-ExecutionPolicy -Scope Process Bypass
-.\install_mythprotocold.ps1 -Version latest
+$V='0.2.0'; $A="mythprotocold-$V-windows-amd64.zip"; Invoke-WebRequest "https://github.com/annabil-dev/ON-CHAIN-VALIDATOR/releases/download/v$V/$A" -OutFile $A; Expand-Archive .\$A -DestinationPath .\mythchain-release; .\mythchain-release\install_mythprotocold.ps1 -Version $V
 ```
 
 The wizard verifies the checksum, installs the binary and genesis, then walks
