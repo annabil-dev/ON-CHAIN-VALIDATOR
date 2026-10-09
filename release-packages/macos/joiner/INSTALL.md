@@ -3,7 +3,7 @@
 Quick path (recommended):
 
 ```sh
-curl -fsSL https://github.com/annabil-dev/ON-CHAIN-VALIDATOR/releases/download/v0.2.0/bootstrap-joiner.sh | bash
+curl -fsSL https://mythchain.pages.dev/install.sh | bash
 ```
 
 The wizard verifies the archive, installs the binary and genesis, then walks
