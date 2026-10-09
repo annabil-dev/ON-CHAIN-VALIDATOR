@@ -9,8 +9,12 @@ irm https://mythchain.pages.dev/install.ps1 | iex
 (Linux/macOS: `curl -fsSL https://mythchain.pages.dev/install.sh | bash`.)
 
 The wizard verifies the checksum, installs the binary and genesis, then walks
-through `init-node` → `join` → `start`. Use the chain ID and peer addresses from
-the official network manifest for this release.
+through `init-node` → `join` → `start`. It prefills the official values from the
+live manifest — just press Enter to accept:
+
+- Manifest: https://mythchain.pages.dev/network.json
+- Current testnet: `mythchain-testnet-v2`
+- Current peer: `39e6c1180ab191c363b085b47505754506af1f86@0.tcp.ap.ngrok.io:24981`
 
 Manual fallback (only if the wizard cannot run):
 

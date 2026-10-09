@@ -50,8 +50,18 @@ try {
         & $Binary init-node --home $NodeHome --genesis (Join-Path $InstallDir 'release\genesis.json')
         $Join = Read-Host 'Join a network now? [y/N]'
         if ($Join -match '^(y|yes)$') {
-            $ChainId = Read-Host 'Chain ID'
-            $Peers = Read-Host 'Persistent peer(s), comma separated (ID@host:26656)'
+            $ManifestChain = ''
+            $ManifestPeers = ''
+            try {
+                $Manifest = Invoke-RestMethod -Uri 'https://mythchain.pages.dev/network.json' -TimeoutSec 15
+                $ManifestChain = $Manifest.chain_id
+                $ManifestPeers = ($Manifest.persistent_peers -join ',')
+                if ($ManifestChain) { Write-Output "Official testnet: $ManifestChain (press Enter to accept)" }
+            } catch { Write-Output 'Could not fetch the network manifest; enter values manually.' }
+            $ChainId = Read-Host "Chain ID [$ManifestChain]"
+            if (-not $ChainId) { $ChainId = $ManifestChain }
+            $Peers = Read-Host "Persistent peer(s) [$ManifestPeers]"
+            if (-not $Peers) { $Peers = $ManifestPeers }
             $Seeds = Read-Host 'Seed(s), optional (ID@host:26656)'
             $JoinArgs = @('join', '--home', $NodeHome, '--chain-id', $ChainId)
             if ($Peers) { $JoinArgs += @('--persistent-peers', $Peers) }

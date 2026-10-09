@@ -67,8 +67,14 @@ if [[ -t 0 ]] && { read -r -p "Initialize this node now? [y/N] " answer; [[ "${a
   "${BIN}" init-node --home "${NODE_HOME}" --genesis "${GENESIS}"
   read -r -p "Join a network now? [y/N] " answer
   if [[ "${answer,,}" == y || "${answer,,}" == yes ]]; then
-    read -r -p "Chain ID: " CHAIN_ID
-    read -r -p "Persistent peer(s), comma separated (ID@host:26656): " PEERS
+    MANIFEST_JSON="$(curl -fsSL --max-time 15 https://mythchain.pages.dev/network.json 2>/dev/null || true)"
+    MANIFEST_CHAIN="$(printf '%s' "$MANIFEST_JSON" | sed -nE 's/.*"chain_id": "([^"]+)".*/\1/p')"
+    MANIFEST_PEERS="$(printf '%s' "$MANIFEST_JSON" | grep -oE '[0-9a-f]{40}@[^", ]+' | paste -sd ',' -)"
+    [[ -n "${MANIFEST_CHAIN:-}" ]] && echo "Official testnet: ${MANIFEST_CHAIN} (press Enter to accept)"
+    read -r -p "Chain ID [${MANIFEST_CHAIN:-}]: " CHAIN_ID
+    [[ -z "${CHAIN_ID}" ]] && CHAIN_ID="${MANIFEST_CHAIN:-}"
+    read -r -p "Persistent peer(s) [${MANIFEST_PEERS:-}]: " PEERS
+    [[ -z "${PEERS}" ]] && PEERS="${MANIFEST_PEERS:-}"
     read -r -p "Seed(s), optional (ID@host:26656): " SEEDS
     JOIN_ARGS=(join --home "${NODE_HOME}" --chain-id "${CHAIN_ID}")
     [[ -z "${PEERS}" ]] || JOIN_ARGS+=(--persistent-peers "${PEERS}")

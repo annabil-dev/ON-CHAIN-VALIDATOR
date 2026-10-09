@@ -3,14 +3,16 @@
 Quick path (recommended):
 
 ```sh
-bash install_mythprotocold.sh latest
+curl -fsSL https://github.com/annabil-dev/ON-CHAIN-VALIDATOR/releases/download/v0.2.0/bootstrap-joiner.sh | bash
 ```
 
-Ganti `latest` dengan nomor versi (misal `1.2.3`) kalau mau pin ke rilis tertentu.
-
 The wizard verifies the archive, installs the binary and genesis, then walks
-through `init-node` → `join` → `start`. Use the chain ID and peer addresses from
-the official network manifest for this release.
+through `init-node` → `join` → `start`. It prefills the official values from the
+live manifest — just press Enter to accept:
+
+- Manifest: https://mythchain.pages.dev/network.json
+- Current testnet: `mythchain-testnet-v2`
+- Current peer: `39e6c1180ab191c363b085b47505754506af1f86@0.tcp.ap.ngrok.io:24981`
 
 Manual fallback (only if the wizard cannot run):
 

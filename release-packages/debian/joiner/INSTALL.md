@@ -17,6 +17,9 @@ mythprotocold join --home "$HOME/.mythprotocol" --chain-id "$CHAIN_ID" \
 mythprotocold start --home "$HOME/.mythprotocol"
 ```
 
-Confirm the genesis SHA-256, chain ID, and peer IDs against the same manifest
-before starting. (Debian here means the `.deb` path for Debian/Ubuntu; generic
-Linux distros use the `linux/` tarball instead.)
+Confirm the genesis SHA-256, chain ID, and peer IDs against the live manifest
+(https://mythchain.pages.dev/network.json) before starting. Current testnet:
+`mythchain-testnet-v2`, peer
+`39e6c1180ab191c363b085b47505754506af1f86@0.tcp.ap.ngrok.io:24981`.
+(Debian here means the `.deb` path for Debian/Ubuntu; generic Linux distros use
+the `linux/` tarball instead.)
