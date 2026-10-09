@@ -12,7 +12,7 @@ usage() {
 }
 [[ -n "${VERSION}" ]] || usage
 if [[ "${VERSION}" == "latest" ]]; then
-  TAG="$(curl -fsSL "https://api.github.com/repos/${REPO}/releases/latest" | grep -m1 '"tag_name"' | sed -E 's/.*"tag_name": "v?([^"]+)".*/\1/')"
+  TAG="$(curl -fsSL "https://api.github.com/repos/${REPO}/releases/latest" | sed -nE 's/.*"tag_name": "v?([^"]+)".*/\1/p')"
   VERSION="${TAG:-}"
 fi
 [[ "${VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || usage
