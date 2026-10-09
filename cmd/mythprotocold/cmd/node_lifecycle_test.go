@@ -122,6 +122,29 @@ func TestValidatePeerListRejectsMalformedAddresses(t *testing.T) {
 	}
 }
 
+func TestParsePeerAddressNeedsNoDNS(t *testing.T) {
+	// A hostname that cannot resolve must still validate: resolution happens
+	// at dial time, never during join/start configuration.
+	id, err := parsePeerAddress("39e6c1180ab191c363b085b47505754506af1f86@unresolvable-host.invalid:26656")
+	if err != nil {
+		t.Fatalf("unresolvable hostname rejected: %v", err)
+	}
+	if string(id) != "39e6c1180ab191c363b085b47505754506af1f86" {
+		t.Fatalf("peer ID = %q", id)
+	}
+	for _, addr := range []string{
+		"39e6c1180ab191c363b085b47505754506af1f86@127.0.0.1:0",
+		"39e6c1180ab191c363b085b47505754506af1f86@127.0.0.1:65536",
+		"39e6c1180ab191c363b085b47505754506af1f86@:26656",
+		"short-id@127.0.0.1:26656",
+		"39e6c1180ab191c363b085b47505754506af1f86@127.0.0.1",
+	} {
+		if _, err := parsePeerAddress(addr); err == nil {
+			t.Fatalf("invalid peer address accepted: %q", addr)
+		}
+	}
+}
+
 func TestJoinRequiresPeerBeforeChangingConfiguration(t *testing.T) {
 	genesis := filepath.Join("..", "..", "..", "release", "genesis.json")
 	home := filepath.Join(t.TempDir(), "node")

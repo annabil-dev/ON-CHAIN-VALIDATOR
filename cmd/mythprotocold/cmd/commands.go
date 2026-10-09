@@ -12,7 +12,6 @@ import (
 	confixcmd "cosmossdk.io/tools/confix/cmd"
 	abci "github.com/cometbft/cometbft/abci/types"
 	cmtcfg "github.com/cometbft/cometbft/config"
-	"github.com/cometbft/cometbft/p2p"
 	dbm "github.com/cosmos/cosmos-db"
 	"github.com/cosmos/cosmos-sdk/baseapp"
 	"github.com/cosmos/cosmos-sdk/client"
@@ -163,9 +162,9 @@ func allowedPeerIDs(configPath string) map[string]struct{} {
 			if raw == "" {
 				continue
 			}
-			peer, err := p2p.NewNetAddressString(raw)
+			id, err := parsePeerAddress(raw)
 			if err == nil {
-				allowed[string(peer.ID)] = struct{}{}
+				allowed[string(id)] = struct{}{}
 			}
 		}
 	}

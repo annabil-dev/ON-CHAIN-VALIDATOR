@@ -7,8 +7,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"text/template"
 
@@ -326,6 +328,33 @@ func NewJoinNetworkCmd(defaultHome string) *cobra.Command {
 	return cmd
 }
 
+// parsePeerAddress validates an ID@host:port peer address the same way CometBFT
+// does, except it never resolves DNS: a join/start command must not fail just
+// because the network is momentarily unreachable. Resolution happens later at
+// dial time, where CometBFT reports the error itself.
+func parsePeerAddress(addr string) (p2p.ID, error) {
+	parts := strings.Split(addr, "@")
+	if len(parts) != 2 {
+		return "", fmt.Errorf("address %q must be ID@host:port", addr)
+	}
+	idBytes, err := hex.DecodeString(parts[0])
+	if err != nil || len(idBytes) != p2p.IDByteLength {
+		return "", fmt.Errorf("address %q has an invalid peer ID (want 40 hex chars)", addr)
+	}
+	host, portStr, err := net.SplitHostPort(parts[1])
+	if err != nil {
+		return "", fmt.Errorf("address %q has an invalid host:port: %w", addr, err)
+	}
+	if host == "" {
+		return "", fmt.Errorf("address %q must include a host", addr)
+	}
+	port, err := strconv.Atoi(portStr)
+	if err != nil || port < 1 || port > 65535 {
+		return "", fmt.Errorf("address %q must use TCP port 1-65535", addr)
+	}
+	return p2p.ID(parts[0]), nil
+}
+
 func validatePeerList(peers, seeds string) error {
 	for _, list := range []struct{ label, value string }{{"persistent peer", peers}, {"seed", seeds}} {
 		for _, addr := range strings.Split(list.value, ",") {
@@ -333,12 +362,8 @@ func validatePeerList(peers, seeds string) error {
 			if addr == "" {
 				continue
 			}
-			parsed, err := p2p.NewNetAddressString(addr)
-			if err != nil {
-				return fmt.Errorf("invalid %s address %q: %w", list.label, addr, err)
-			}
-			if parsed.ID == "" {
-				return fmt.Errorf("%s address %q must include the peer ID", list.label, addr)
+			if _, err := parsePeerAddress(addr); err != nil {
+				return fmt.Errorf("invalid %s address: %w", list.label, err)
 			}
 		}
 	}
