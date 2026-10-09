@@ -3,4 +3,4 @@
 release/genesis.json -text
 release/genesis.sha256 -text
 # Shell scripts must keep LF endings for the shebang to work.
-/*.sh text eol=lf
+*.sh text eol=lf
