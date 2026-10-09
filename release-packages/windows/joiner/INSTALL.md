@@ -3,8 +3,10 @@
 Quick path (recommended):
 
 ```powershell
-$V='0.2.0'; $A="mythprotocold-$V-windows-amd64.zip"; Invoke-WebRequest "https://github.com/annabil-dev/ON-CHAIN-VALIDATOR/releases/download/v$V/$A" -OutFile $A; Expand-Archive .\$A -DestinationPath .\mythchain-release; .\mythchain-release\install_mythprotocold.ps1 -Version $V
+irm https://mythchain.pages.dev/install.ps1 | iex
 ```
+
+(Linux/macOS: `curl -fsSL https://mythchain.pages.dev/install.sh | bash`.)
 
 The wizard verifies the checksum, installs the binary and genesis, then walks
 through `init-node` → `join` → `start`. Use the chain ID and peer addresses from
@@ -20,3 +22,17 @@ Expand-Archive .\mythprotocold-<version>-windows-<arch>.zip -DestinationPath .\m
 ```
 
 Never substitute the development chain ID or a test peer for the release manifest.
+
+## Uninstall (Windows)
+
+Stop the node first (`Ctrl+C` in its terminal), then delete the install folder,
+node home, and download leftovers. **This deletes keys and chain data** — back up
+anything valuable first (testnet throwaway homes are safe to delete):
+
+```powershell
+Remove-Item "$env:LOCALAPPDATA\Programs\MythChain" -Recurse -Force
+Remove-Item "$HOME\.mythprotocol" -Recurse -Force
+Remove-Item .\mythchain-release, .\mythchain-*.zip, .\SHA256SUMS -Recurse -Force -ErrorAction SilentlyContinue
+```
+
+If you added the install folder to `PATH` manually, remove that entry too.
