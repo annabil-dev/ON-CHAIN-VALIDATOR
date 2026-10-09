@@ -1,4 +1,4 @@
-name: Build Mythchain validator packages
+name: Build stable Mythchain releases
 
 on:
   push:
@@ -22,22 +22,29 @@ jobs:
         with:
           go-version-file: go.mod
 
+      - name: Verify dependencies
+        run: go mod verify
+
       - name: Test Go packages
         run: go test ./...
 
-      - name: Build Linux amd64/arm64 tarballs and Ubuntu packages
+      - name: Static analysis
+        run: go vet ./...
+
+      - name: Build stable cross-platform archives and Ubuntu packages
         shell: bash
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
           OUT_DIR="release/${GITHUB_REF_NAME}"
-          VERSION="$VERSION" OUT_DIR="$OUT_DIR" bash build_validator_release.sh
+          VERSION="$VERSION" OUT_DIR="$OUT_DIR" COMMIT="$GITHUB_SHA" bash build_validator_release.sh
 
-      - name: Publish prerelease assets
+      - name: Publish stable release assets
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
-          name: Mythchain validator packages ${{ github.ref_name }}
-          prerelease: true
+          name: Mythchain ${{ github.ref_name }}
+          prerelease: false
+          draft: false
           files: release/${{ github.ref_name }}/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

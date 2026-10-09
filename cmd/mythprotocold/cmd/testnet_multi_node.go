@@ -66,12 +66,15 @@ type initArgs struct {
 	numValidators          int
 	outputDir              string
 	startingIPAddress      string
+	externalAddress        string
 	validatorsStakesAmount map[int]sdk.Coin
 	ports                  map[int]string
 	enablePoUWEmissions    bool
 	commissionRate         math.LegacyDec
 	commissionMaxRate      math.LegacyDec
 	commissionMaxChange    math.LegacyDec
+	localTestnet           bool
+	removeOutputOnError    bool
 }
 
 // NewTestnetMultiNodeCmd returns a cmd to initialize all files for tendermint testnet and application
@@ -100,12 +103,15 @@ Example:
 			config := serverCtx.Config
 
 			args := initArgs{}
+			args.localTestnet = true
+			args.removeOutputOnError = true
 			args.outputDir, _ = cmd.Flags().GetString(flagOutputDir)
 			args.keyringBackend, _ = cmd.Flags().GetString(flags.FlagKeyringBackend)
 			args.chainID, _ = cmd.Flags().GetString(flags.FlagChainID)
 			args.minGasPrices, _ = cmd.Flags().GetString(server.FlagMinGasPrices)
 			args.nodeDirPrefix, _ = cmd.Flags().GetString(flagNodeDirPrefix)
 			args.startingIPAddress, _ = cmd.Flags().GetString(flagStartingIPAddress)
+			args.externalAddress, _ = cmd.Flags().GetString("external-address")
 			args.numValidators, _ = cmd.Flags().GetInt(flagNumValidators)
 			args.algo, _ = cmd.Flags().GetString(flags.FlagKeyType)
 			args.enablePoUWEmissions, _ = cmd.Flags().GetBool(flagEnablePoUWEmissions)
@@ -139,7 +145,7 @@ Example:
 					if !ok {
 						continue
 					}
-					args.validatorsStakesAmount[top] = sdk.NewCoin(sdk.DefaultBondDenom, a)
+					args.validatorsStakesAmount[top] = sdk.NewCoin(mythtypes.MTCDenom, a)
 					top += 1
 				}
 
@@ -159,7 +165,11 @@ Example:
 				}
 			}
 
-			return initTestnetFiles(clientCtx, cmd, config, mbm, genBalIterator, args)
+			if err := initTestnetFiles(clientCtx, cmd, config, mbm, genBalIterator, args); err != nil {
+				return err
+			}
+			cmd.PrintErrf("Successfully initialized %d node directories\n", args.numValidators)
+			return nil
 		},
 	}
 
@@ -195,7 +205,7 @@ func addTestnetFlagsToCmd(cmd *cobra.Command) {
 	cmd.Flags().Int(flagNumValidators, 4, "Number of validators to initialize the testnet with")
 	cmd.Flags().StringP(flagOutputDir, "o", "./.testnets", "Directory to store initialization data for the testnet")
 	cmd.Flags().String(flags.FlagChainID, "", "genesis file chain-id, if left blank will be randomly created")
-	cmd.Flags().String(server.FlagMinGasPrices, "0.0001umtc,0.0001uzyra", "Minimum gas prices; Phase 1 accepts MTC only, and governance activation enables uzyra fees")
+	cmd.Flags().String(server.FlagMinGasPrices, "0.001umtc,0.001uzyra", "Minimum gas prices; Phase 1 accepts MTC only, and governance activation enables uzyra fees")
 	cmd.Flags().String(flags.FlagKeyType, string(hd.Secp256k1Type), "Key signing algorithm to generate keys for")
 
 	// support old flags name for backwards compatibility
@@ -238,9 +248,12 @@ func initTestnetFiles(
 		persistentPeers string
 		gentxsFiles     []string
 	)
-	mythAllocationBase := mythtypes.MTCValidatorAllocation * mythtypes.MTCDecimals
+	mythAllocationBase := mythtypes.MTCGenesisBondedAllocation * mythtypes.MTCDecimals
 	mythPerValidator := mythAllocationBase / uint64(args.numValidators)
 	mythRemainder := mythAllocationBase % uint64(args.numValidators)
+	liquidAllocation := mythtypes.MTCGenesisLiquidAllocation * mythtypes.MTCDecimals
+	liquidPerValidator := liquidAllocation / uint64(args.numValidators)
+	liquidRemainder := liquidAllocation % uint64(args.numValidators)
 
 	inBuf := bufio.NewReader(cmd.InOrStdin())
 	for i := 0; i < args.numValidators; i++ {
@@ -254,17 +267,21 @@ func initTestnetFiles(
 
 		var err error
 		if err := os.MkdirAll(filepath.Join(nodeDir, "config"), nodeDirPerm); err != nil {
-			_ = os.RemoveAll(args.outputDir)
+			cleanupFailedTestnetOutput(args)
 			return err
 		}
 
 		nodeIDs[i], valPubKeys[i], err = genutil.InitializeNodeValidatorFiles(nodeConfig)
 		if err != nil {
-			_ = os.RemoveAll(args.outputDir)
+			cleanupFailedTestnetOutput(args)
 			return err
 		}
 
-		memo := fmt.Sprintf("%s@%s:"+strconv.Itoa(26656-3*i), nodeIDs[i], args.startingIPAddress)
+		peerEndpoint := fmt.Sprintf("%s:%d", args.startingIPAddress, 26656-3*i)
+		if args.externalAddress != "" && args.numValidators == 1 {
+			peerEndpoint = args.externalAddress
+		}
+		memo := fmt.Sprintf("%s@%s", nodeIDs[i], peerEndpoint)
 
 		if persistentPeers == "" {
 			persistentPeers = memo
@@ -287,7 +304,7 @@ func initTestnetFiles(
 
 		addr, secret, err := testutil.GenerateSaveCoinKey(kb, nodeDirName, "", true, algo)
 		if err != nil {
-			_ = os.RemoveAll(args.outputDir)
+			cleanupFailedTestnetOutput(args)
 			return err
 		}
 
@@ -307,24 +324,33 @@ func initTestnetFiles(
 			}
 		}
 
-		accTokens := sdk.TokensFromConsensusPower(1000, sdk.DefaultPowerReduction)
+		_ = sdk.TokensFromConsensusPower(1000, sdk.DefaultPowerReduction)
 		accStakingAmount := mythPerValidator
 		if uint64(i) < mythRemainder {
 			accStakingAmount++
 		}
 		accStakingTokens := math.NewIntFromUint64(accStakingAmount)
-		coins := sdk.NewCoins(sdk.NewCoin(sdk.DefaultBondDenom, accStakingTokens))
+		coins := sdk.NewCoins(sdk.NewCoin(mythtypes.MTCDenom, accStakingTokens))
 		if args.keyringBackend == "test" {
-			coins = coins.Add(sdk.NewCoin("testtoken", accTokens))
+			// testtoken removed for Mythchain genesis
 		}
 
+		// Split the chain-wide liquid allocation across all generated validators.
+		// The bonded allocation is split in the same way above, preserving the
+		// fixed 21M MTC supply for both solo and multi-node testnets.
+		liquidAmount := liquidPerValidator
+		if uint64(i) < liquidRemainder {
+			liquidAmount++
+		}
+		liquid := sdk.NewCoin(mythtypes.MTCDenom, math.NewIntFromUint64(liquidAmount))
+		coins = coins.Add(liquid)
 		genBalances = append(genBalances, banktypes.Balance{Address: addr.String(), Coins: coins.Sort()})
 		genAccounts = append(genAccounts, authtypes.NewBaseAccount(addr, nil, 0, 0))
 
 		var valTokens sdk.Coin
 		valTokens, ok := args.validatorsStakesAmount[i]
 		if !ok {
-			valTokens = sdk.NewCoin(sdk.DefaultBondDenom, sdk.TokensFromConsensusPower(100, sdk.DefaultPowerReduction))
+			valTokens = sdk.NewCoin(mythtypes.MTCDenom, math.NewIntFromUint64(mythtypes.MTCGenesisBondedAllocation*mythtypes.MTCDecimals))
 		}
 		if valTokens.Denom != mythtypes.MTCDenom || !valTokens.Amount.IsPositive() ||
 			valTokens.Amount.GT(math.NewIntFromUint64(accStakingAmount)) {
@@ -406,8 +432,13 @@ func initTestnetFiles(
 		return err
 	}
 
-	cmd.PrintErrf("Successfully initialized %d node directories\n", args.numValidators)
 	return nil
+}
+
+func cleanupFailedTestnetOutput(args initArgs) {
+	if args.removeOutputOnError {
+		_ = os.RemoveAll(args.outputDir)
+	}
 }
 
 func writeFile(file, dir string, contents []byte) error {
@@ -464,6 +495,13 @@ func initGenFiles(
 	for _, bal := range bankGenState.Balances {
 		bankGenState.Supply = bankGenState.Supply.Add(bal.Coins...)
 	}
+
+	// Mythchain fixed tokenomics guard: founder allocation + treasury must equal max supply.
+	expectedSupply := math.NewIntFromUint64(mythtypes.MTCMaxSupply * mythtypes.MTCDecimals)
+	if !bankGenState.Supply.AmountOf(mythtypes.MTCDenom).Equal(expectedSupply) {
+		return fmt.Errorf("MTC genesis supply mismatch: got %s expected %s", bankGenState.Supply.String(), expectedSupply.String())
+	}
+
 	appGenState[banktypes.ModuleName] = clientCtx.Codec.MustMarshalJSON(&bankGenState)
 
 	var distributionGenState distrtypes.GenesisState
@@ -531,6 +569,7 @@ func collectGenFiles(
 		nodeDir := filepath.Join(outputDir, nodeDirName)
 		gentxsDir := filepath.Join(nodeDir, "config", "gentx")
 		nodeConfig.Moniker = nodeDirName
+		nodeConfig.P2P.ExternalAddress = args.externalAddress
 
 		nodeConfig.SetRoot(nodeDir)
 
@@ -567,6 +606,13 @@ func collectGenFiles(
 		exportGenesis := genutiltypes.NewAppGenesisWithVersion(chainID, appState)
 		if err := genutil.ExportGenesisFileWithTime(genFile, exportGenesis, genTime); err != nil {
 			return err
+		}
+		if args.localTestnet {
+			if err := writeLocalTestnetManifest(nodeDir, genFile); err != nil {
+				return fmt.Errorf("write local testnet manifest for %s: %w", nodeDirName, err)
+			}
+		} else if err := writeGenesisChecksumFile(genFile); err != nil {
+			return fmt.Errorf("write genesis checksum for %s: %w", nodeDirName, err)
 		}
 	}
 

@@ -2,13 +2,19 @@ package cmd
 
 import (
 	"errors"
+	"path/filepath"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
 	"cosmossdk.io/log/v2"
 	confixcmd "cosmossdk.io/tools/confix/cmd"
+	abci "github.com/cometbft/cometbft/abci/types"
+	cmtcfg "github.com/cometbft/cometbft/config"
+	"github.com/cometbft/cometbft/p2p"
 	dbm "github.com/cosmos/cosmos-db"
+	"github.com/cosmos/cosmos-sdk/baseapp"
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/debug"
 	"github.com/cosmos/cosmos-sdk/client/flags"
@@ -21,7 +27,6 @@ import (
 	"github.com/cosmos/cosmos-sdk/types/module"
 	authcmd "github.com/cosmos/cosmos-sdk/x/auth/client/cli"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
-	genutilcli "github.com/cosmos/cosmos-sdk/x/genutil/client/cli"
 
 	"mythprotocol/app"
 )
@@ -32,9 +37,13 @@ func initRootCmd(
 	basicManager module.BasicManager,
 ) {
 	rootCmd.AddCommand(
-		genutilcli.InitCmd(basicManager, app.DefaultNodeHome),
+		NewDisabledSDKInitCmd(),
+		NewInitNodeCmd(app.DefaultNodeHome),
 		NewInPlaceTestnetCmd(),
 		NewTestnetMultiNodeCmd(basicManager, banktypes.GenesisBalancesIterator{}),
+		NewFounderInitCmd(basicManager, banktypes.GenesisBalancesIterator{}),
+		NewJoinCmd(),
+		NewTreasuryAuditCmd(),
 		debug.Cmd(),
 		confixcmd.ConfigCommand(),
 		pruning.Cmd(newApp, app.DefaultNodeHome),
@@ -47,8 +56,8 @@ func initRootCmd(
 
 	// add keybase, auxiliary RPC, query, genesis, and tx child commands
 	rootCmd.AddCommand(
+		NewSafeGenesisCmd(basicManager),
 		server.StatusCommand(),
-		genutilcli.Commands(txConfig, basicManager, app.DefaultNodeHome),
 		queryCommand(),
 		txCommand(),
 		keys.Commands(),
@@ -114,12 +123,53 @@ func newApp(
 	appOpts servertypes.AppOptions,
 ) servertypes.Application {
 	baseappOptions := server.DefaultBaseappOptions(appOpts)
+	baseappOptions = append(baseappOptions, peerIDFilterOption(appOpts))
 
 	return app.New(
 		logger, db, true,
 		appOpts,
 		baseappOptions...,
 	)
+}
+
+// peerIDFilterOption restricts peers of an initialized joining node to the
+// persistent peers and seeds explicitly configured by the operator.
+func peerIDFilterOption(appOpts servertypes.AppOptions) func(*baseapp.BaseApp) {
+	allowed := make(map[string]struct{})
+	if home, ok := appOpts.Get(flags.FlagHome).(string); ok && home != "" {
+		allowed = allowedPeerIDs(filepath.Join(home, "config", cmtcfg.DefaultConfigFileName))
+	}
+
+	return func(bApp *baseapp.BaseApp) {
+		bApp.SetIDPeerFilter(func(id string) *abci.ResponseQuery {
+			if _, ok := allowed[id]; ok {
+				return &abci.ResponseQuery{}
+			}
+			return &abci.ResponseQuery{Code: 1, Log: "peer ID is not configured as a persistent peer or seed"}
+		})
+	}
+}
+
+func allowedPeerIDs(configPath string) map[string]struct{} {
+	allowed := make(map[string]struct{})
+	cfg, err := readCometConfig(configPath)
+	if err != nil || cfg.P2P == nil {
+		return allowed
+	}
+	lists := []string{cfg.P2P.PersistentPeers, cfg.P2P.Seeds, cfg.P2P.UnconditionalPeerIDs}
+	for _, list := range lists {
+		for _, raw := range strings.Split(list, ",") {
+			raw = strings.TrimSpace(raw)
+			if raw == "" {
+				continue
+			}
+			peer, err := p2p.NewNetAddressString(raw)
+			if err == nil {
+				allowed[string(peer.ID)] = struct{}{}
+			}
+		}
+	}
+	return allowed
 }
 
 // appExport creates a new app (optionally at a given height) and exports state.

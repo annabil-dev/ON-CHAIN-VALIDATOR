@@ -2,14 +2,12 @@
 
 Status: local ZYRA/Mythchain source supports weighted criteria registration,
 canonical claim/query, result submission, and per-criterion judge votes. The Go
-keeper computes canonical 2-of-3 results per criterion and stores score weights
-and evidence. Python/Go unit tests and the updated daemon build pass. The existing
-three-validator WSL testnet has been upgraded locally; an adapter smoke committed a
-weighted task and three Cosmos votes (one FAIL, two PASS), and all RPCs returned
-the same `APPROVED` 80/100 score. The ZYRA adapter/runtime and Miner polling
-hotfix are included in PyPI `zyra-network 2.1.62`; the weighted Mythchain daemon
-source/binary remains a separate upgrade and has not been deployed to a public
-network.
+keeper computes canonical results and stores scores/evidence. The current working
+tree replaces the Miner/Client/Judge CLI subprocess boundary with native Cosmos
+direct signing through CosmPy `0.12.2`; each role uses a local Cosmos key file and
+the chain's gRPC/REST endpoint. This adapter change is **not yet in the published
+PyPI `zyra-network 2.1.65` package**. Native mode has unit coverage; a shared-chain
+smoke is still required before publishing it.
 Native reward settlement remains unimplemented.
 
 ## Responsibility boundary
@@ -17,16 +15,15 @@ Native reward settlement remains unimplemented.
 - **P2P** discovers and relays tasks/results/votes for responsiveness.
 - **Mythchain** is authoritative for task registration, acceptance hash, active
   attempt, result commitment, and any future settlement.
-- **ZYRA CLI** coordinates P2P with chain transactions/queries and must treat
-  chain query results as authoritative before acting on a task.
+- **ZYRA role process** signs native Cosmos messages and coordinates P2P with
+  chain transactions/queries; it must treat chain query results as authoritative.
 - A missing/unreachable chain is an unavailable state, never permission to
   submit a chain-dependent result as finalized or award a canonical reward.
 
 ## Current chain contract
 
-The prototype module exposes the following logical operations through
-`mythprotocold` AutoCLI (exact flags/output must be verified against the target
-binary and chain configuration):
+The prototype module exposes these protobuf messages and gRPC query service in
+package `mythprotocol.mythprotocol.v1`:
 
 1. Register `(task_id, acceptance_sha256)` and optional immutable
    `criteria_json` from the Client account. Weighted criteria include executable
@@ -38,10 +35,10 @@ binary and chain configuration):
    committed state showing `SUBMITTED` before it reports success.
 5. Vote against the submitted attempt from Judge accounts. Weighted votes include
    per-criterion PASS/FAIL evidence; the keeper stores each authenticated result,
-   applies 2-of-3 majority per criterion, and derives canonical score/status.
-   Legacy tasks without criteria retain the old two-matching-verdict behavior.
+   applies 3-of-4 majority per criterion, and derives canonical score/status.
+   Legacy tasks without criteria retain the old three-matching-verdict behavior.
 
-See `TASK_LEASE_PROTOCOL.md` for current command examples and known limitations.
+See `TASK_LEASE_PROTOCOL.md` for state-transition rules and known limitations.
 
 ## Required adapter behavior
 
@@ -88,38 +85,47 @@ See `TASK_LEASE_PROTOCOL.md` for current command examples and known limitations.
   Mythchain reward. Preserve distinct states such as `pending`, `approved`,
   `rejected`, and `settled`.
 
-## Adapter transport decision for first increment
+## Native signing configuration
 
-Use the installed/configured `mythprotocold` CLI as a subprocess boundary rather
-than embedding Cosmos signing logic in ZYRA. The initial adapter reads:
+Native signing is the default in the current source tree. CosmPy builds standard
+Cosmos `TxBody`, `AuthInfo`, `SignDoc`, and `TxRaw` structures and signs with
+`SIGN_MODE_DIRECT`; custom Mythchain messages are packed in protobuf `Any` with
+their canonical type URLs. No `mythprotocold` executable or WSL installation is
+needed on Miner/Client/Judge hosts. This code is not yet in the published
+`zyra-network==2.1.65` package.
+
+The Cosmos gRPC service must be reachable at the configured endpoint, for example
+`grpc+http://<GRPC_HOST>:9090`. Cosmos REST (`rest+http://<REST_HOST>:1317`) is also
+supported when the API is enabled. `tcp://<HOST>:26657` is the CometBFT RPC, not a
+gRPC endpoint and should not be put in `MYTHCHAIN_GRPC_ENDPOINT`.
+
+Native adapter config:
 
 ```text
 ZYRA_MYTHCHAIN_MODE=required
-MYTHCHAIN_BINARY=mythprotocold
-MYTHCHAIN_NODE=tcp://127.0.0.1:26657
-MYTHCHAIN_CHAIN_ID=mythprotocol
-MYTHCHAIN_CLIENT_KEY=<local keyring key name>
+MYTHCHAIN_CHAIN_ID=myth-testnet-1
+MYTHCHAIN_GRPC_ENDPOINT=grpc+http://<GRPC_HOST>:9090
 MYTHCHAIN_CLIENT_ADDRESS=<myth... client address>
-MYTHCHAIN_MINER_KEY=<local keyring key name>
+MYTHCHAIN_CLIENT_MNEMONIC_FILE=<protected mnemonic file>
 MYTHCHAIN_MINER_ADDRESS=<myth... miner address>
-MYTHCHAIN_JUDGE_KEY=<local Cosmos judge key name>
+MYTHCHAIN_MINER_PRIVATE_KEY_FILE=<protected raw-hex key file>
 MYTHCHAIN_JUDGE_ADDRESS=<myth... judge address>
+MYTHCHAIN_JUDGE_PRIVATE_KEY_FILE=<protected raw-hex key file>
 MYTHCHAIN_LEASE_BLOCKS=500
-MYTHCHAIN_TX_FEES=<optional chain fee string>
-MYTHCHAIN_KEYRING_BACKEND=os
-MYTHCHAIN_HOME=<optional chain CLI home directory>
-MYTHCHAIN_WSL_DISTRO=<optional; e.g. Ubuntu when ZYRA runs on Windows and daemon is in WSL>
-MYTHCHAIN_MINER_NODE=<optional miner-specific RPC; overrides MYTHCHAIN_NODE>
-MYTHCHAIN_MINER_HOME=<optional miner-specific keyring home; overrides MYTHCHAIN_HOME>
-MYTHCHAIN_JUDGE_NODE=<optional judge-specific RPC>
-MYTHCHAIN_JUDGE_HOME=<optional judge-specific keyring home>
-MYTHCHAIN_SECOND_JUDGE_KEY=<second independent Cosmos judge key>
+MYTHCHAIN_TX_FEES=<optional fee amount such as 1000umtc>
+MYTHCHAIN_GAS_LIMIT=1000000
+MYTHCHAIN_MINER_GRPC_ENDPOINT=<optional miner-specific endpoint>
+MYTHCHAIN_JUDGE_GRPC_ENDPOINT=<optional judge-specific endpoint>
 MYTHCHAIN_SECOND_JUDGE_ADDRESS=<second judge's myth... address>
+MYTHCHAIN_SECOND_JUDGE_PRIVATE_KEY_FILE=<second protected key file>
 ```
 
-Weighted-task deployment also requires a third Judge process with its own
-`MYTHCHAIN_JUDGE_KEY` and `MYTHCHAIN_JUDGE_ADDRESS`; configure each process with
-its own environment/keyring rather than reusing one account.
+Set exactly one role secret file: `MYTHCHAIN_<ROLE>_MNEMONIC_FILE` or
+`MYTHCHAIN_<ROLE>_PRIVATE_KEY_FILE`. Keep it outside the repository with access
+restricted to that role's OS account. The adapter derives the `myth1...` address
+and rejects a mismatch. Do not place mnemonic/private-key material in CLI arguments,
+environment literals, P2P payloads, or logs. Weighted tasks still require independent
+Judge accounts and secret files.
 
 `/submit` registers the task before P2P broadcast when mode is `required`. A
 task published in this mode carries `lease_mode=mythchain`. `/mine` will not
@@ -127,29 +133,24 @@ start that task unless the chain query confirms an active canonical lease owned
 by the configured miner. If another miner owns it, this miner skips the task
 and continues polling. After delivery passes, the miner commits the artifact
 CID/proof hash before broadcasting its P2P trajectory. A `/judge` node submits
-its Cosmos vote before forwarding the P2P vote. Chain CLI/RPC failure is
+its Cosmos vote before forwarding the P2P vote. Chain gRPC/REST failure is
 fail-closed. Use distinct client/miner/judge Cosmos keys as appropriate; the
 existing ZYRA/EVM wallet is not assumed to be a Cosmos account.
 
-The active lease check reads committed block height using the CLI `status`
-command and treats an expiry height at or below that height as inactive. The
-current Mythchain CLI supports `--broadcast-mode sync|async`, so transactions
-are broadcast with `sync` and the adapter waits until a subsequent committed
-state query confirms the owner/attempt. Local command success alone never
-counts as ownership. No mnemonic/private key is put into arguments by the
-adapter; keyring setup/unlock remains the operator's responsibility.
+The active lease check reads committed height from the Cosmos query service and
+treats an expiry height at or below that height as inactive. The adapter waits for
+the signed transaction result and then confirms task ownership from canonical chain
+state. Transaction broadcast success alone never counts as ownership.
 
-Before enabling this against a shared testnet, repeat the smoke test against
-that network's exact binary/version and verify its CLI output. The current Go
-bootstrap and daemon are isolated under the WSL user's `.cache`; they do not
-replace a system-wide Go install. The existing EVM/ZYRA wallet must not be
-assumed compatible with a Cosmos account.
+Before enabling this against a shared testnet, verify the chain ID, gRPC/REST endpoint,
+role-specific key-derived addresses, fee policy, and query/transaction behavior. The
+existing EVM/ZYRA wallet must not be assumed compatible with a Cosmos account.
 
 ## First integration milestone and tests
 
 The opt-in mode is deliberately not the default until a chain endpoint and
-Cosmos keyring are configured. Without it, P2P task leases remain advisory and
-may allow duplicate work. The local multi-validator test confirmed one winner
+role-specific native key files are configured. Without it, P2P task leases remain
+advisory and may allow duplicate work. The local multi-validator test confirmed one winner
 for two concurrent claims through the adapter. `scripts/local_mythchain_miner_smoke.py`
 then exercised the winning worker through scripted Planner/Coder responses,
 the real Docker unit/startup checks, and two independent Cosmos judge votes; it
@@ -171,10 +172,11 @@ Required tests before enabling claim/result/vote:
 - acceptance hash serialization parity with ZYRA;
 - duplicate registration retry discovers existing matching task;
 - mismatching task hash is a hard failure;
-- command timeout/nonzero exit leaves task non-final and retryable;
+- gRPC/REST timeout or non-zero transaction result leaves task non-final and retryable;
 - malformed or stale query response is rejected;
-- no secret appears in subprocess arguments, logs, or P2P payload;
+- no secret appears in logs or P2P payload; native transaction path starts no subprocess;
 - local three-validator result/vote commit and query consistency (passed).
+- native signing integration against the `myth-testnet-1` gRPC endpoint (pending).
 - independent live judge processes over the local relay (not yet run).
 - weighted per-criterion votes have unit/integration tests and the daemon builds,
   but a weighted task has not yet been submitted to a freshly upgraded live

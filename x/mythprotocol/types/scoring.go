@@ -61,6 +61,81 @@ func decodeStrictJSON(raw string, target interface{}) error {
 	return nil
 }
 
+// executableCheckTypes lists the check types a judge can actually run off-chain.
+// Only these types may gate a task: a hard gate on a non-executable check would
+// let one subjective opinion kill any task. New check types must be added here
+// deliberately; anything else is rejected at registration.
+var executableCheckTypes = map[string]bool{
+	"application_runs": true,
+	"stdout_contains":  true,
+	"browser_contains": true,
+	"browser_fetch":    true,
+	"http":             true,
+}
+
+func isExecutableCheckType(checkType string) bool {
+	return executableCheckTypes[checkType]
+}
+
+func criterionCheckType(raw json.RawMessage) (string, error) {
+	var check map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &check); err != nil {
+		return "", fmt.Errorf("check must be a JSON object")
+	}
+	var checkType string
+	if err := json.Unmarshal(check["type"], &checkType); err != nil || checkType == "" {
+		return "", fmt.Errorf("check type is required")
+	}
+	return checkType, nil
+}
+
+// BindEvidenceToChecks forces passed results on substring checks to carry the
+// observed output: claiming "stdout contains X" requires pasting evidence that
+// actually contains X. This raises the cost of lazy voting without executing
+// anything on-chain. Failed results are exempt since their evidence explains
+// the miss instead of quoting the hit.
+func BindEvidenceToChecks(criteria []AcceptanceCriterion, results map[string]CriterionResult) error {
+	for index, criterion := range criteria {
+		result, ok := results[criterion.ID]
+		if !ok || !result.Passed {
+			continue
+		}
+		checkType, err := criterionCheckType(criterion.Check)
+		if err != nil {
+			return fmt.Errorf("criteria[%d] has invalid executable check: %w", index, err)
+		}
+		var check map[string]json.RawMessage
+		if err := json.Unmarshal(criterion.Check, &check); err != nil {
+			return fmt.Errorf("criteria[%d] has invalid executable check", index)
+		}
+		var required []string
+		switch checkType {
+		case "stdout_contains", "browser_contains":
+			var text string
+			if err := json.Unmarshal(check["text"], &text); err != nil {
+				return fmt.Errorf("criteria[%d] has invalid executable check", index)
+			}
+			required = []string{text}
+		case "http":
+			if value, exists := check["contains"]; exists {
+				var items []string
+				if err := json.Unmarshal(value, &items); err != nil {
+					return fmt.Errorf("criteria[%d] has invalid executable check", index)
+				}
+				required = items
+			}
+		default:
+			continue
+		}
+		for _, expected := range required {
+			if expected == "" || !strings.Contains(result.Evidence, expected) {
+				return fmt.Errorf("criteria[%d] passed but evidence does not contain the observed %q", index, expected)
+			}
+		}
+	}
+	return nil
+}
+
 func validateCriterionCheck(raw json.RawMessage) error {
 	var check map[string]json.RawMessage
 	if len(raw) == 0 || len(raw) > 16*1024 || json.Unmarshal(raw, &check) != nil || len(check) == 0 {
@@ -161,6 +236,13 @@ func ParseAcceptanceCriteria(raw string) ([]AcceptanceCriterion, error) {
 		}
 		if err := validateCriterionCheck(criterion.Check); err != nil {
 			return nil, fmt.Errorf("criteria[%d] has invalid executable check: %w", index, err)
+		}
+		checkType, err := criterionCheckType(criterion.Check)
+		if err != nil {
+			return nil, fmt.Errorf("criteria[%d] has invalid executable check: %w", index, err)
+		}
+		if criterion.HardGate && !isExecutableCheckType(checkType) {
+			return nil, fmt.Errorf("criteria[%d] hard gate must use an executable check type", index)
 		}
 		total += criterion.Weight
 		if total > MaxAcceptanceWeightTotal {

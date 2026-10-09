@@ -30,6 +30,14 @@ func (app *App) txFeeChecker(ctx sdk.Context, tx sdk.Tx) (sdk.Coins, int64, erro
 	}
 
 	if len(fees) == 0 {
+		// PoUW task messages are excluded from gasless: every claim/vote must be
+		// paid from a funded account, so Sybil throughput is bounded by the faucet
+		// drip rate instead of free address creation. Get funds from the faucet first.
+		for _, msg := range tx.GetMsgs() {
+			if isPoUWTaskMessage(msg) {
+				return nil, 0, fmt.Errorf("PoUW task messages require a fee: fund this account from the faucet first")
+			}
+		}
 		if len(feeTx.FeeGranter()) != 0 {
 			return nil, 0, fmt.Errorf("zero-fee transactions cannot use a fee granter")
 		}
@@ -80,6 +88,19 @@ func (app *App) txFeeChecker(ctx sdk.Context, tx sdk.Tx) (sdk.Coins, int64, erro
 
 func feeDenomAllowed(pouwEnabled bool, denom string) bool {
 	return denom == types.MTCDenom || (pouwEnabled && denom == types.ZYRADenom)
+}
+
+// isPoUWTaskMessage reports whether a message drives the PoUW task lifecycle.
+// These messages are never eligible for gasless execution: a funded account is
+// required so that spam throughput tracks faucet distribution, not address creation.
+func isPoUWTaskMessage(msg sdk.Msg) bool {
+	switch msg.(type) {
+	case *types.MsgRegisterTask, *types.MsgClaimTask, *types.MsgSubmitTaskResult,
+		*types.MsgVoteTask, *types.MsgReleaseTask:
+		return true
+	default:
+		return false
+	}
 }
 
 func (app *App) transactionSigners(ctx sdk.Context, tx sdk.Tx) ([][]byte, []string, error) {

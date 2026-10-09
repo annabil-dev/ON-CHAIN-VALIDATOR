@@ -14,14 +14,29 @@ const (
 
 	// GovModuleName duplicates the gov module's name to avoid a dependency with x/gov.
 	// It should be synced with the gov module's name if it is ever changed.
-	// See: https://github.com/cosmos/cosmos-sdk/blob/v0.52.0-beta.2/x/gov/types/keys.go#L9
 	GovModuleName = "gov"
 
-	MaxTaskLeaseBlocks     uint64 = 10000
-	MTCDecimals            uint64 = 1_000_000
-	MTCMaxSupply           uint64 = 21_000_000
-	MTCValidatorAllocation uint64 = 1_000_000
-	MTCTreasuryAllocation  uint64 = 20_000_000
+	MaxTaskLeaseBlocks uint64 = 10000
+
+	// MTC tokenomics
+	// 1 MTC = 1,000,000 uMTC
+	MTCDecimals uint64 = 1_000_000
+
+	// Fixed maximum supply: 21 million MTC
+	MTCMaxSupply uint64 = 21_000_000
+
+	// Genesis validator allocation
+	// Total genesis validator allocation = 1,000,000 MTC
+	MTCGenesisValidatorAllocation uint64 = 1_000_000
+
+	// Initial validator self bonded stake
+	MTCGenesisBondedAllocation uint64 = 800_000
+
+	// Initial validator liquid wallet balance
+	MTCGenesisLiquidAllocation uint64 = 200_000
+
+	// Remaining genesis treasury allocation
+	MTCTreasuryAllocation uint64 = 20_000_000
 )
 
 // ParamsKey is the prefix to retrieve all Params

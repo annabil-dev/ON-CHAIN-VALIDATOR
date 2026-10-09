@@ -30,28 +30,42 @@ genesis/seed/RPC release fields are documented in
 [`docs/MYTH_PUBLIC_VALIDATOR_ONBOARDING.md`](docs/MYTH_PUBLIC_VALIDATOR_ONBOARDING.md).
 The current token roles, MTC/ZYRA supplies, reward rules, phase gates, and local
 validation results are summarized in [`docs/MYTH_TOKENOMICS_LAUNCH_PLAN.md`](docs/MYTH_TOKENOMICS_LAUNCH_PLAN.md).
-The upcoming `v0.1.3-myth-phase1` release changes the bond/base-fee denom from `umyth`
-to `umtc`. It requires a fresh genesis and new chain ID; the previous `umyth` genesis
-and checksum cannot be reused. The package release alone does not migrate or launch a
-chain.
+The published `v0.1.3-myth-phase1` prerelease changes the bond/base-fee denom from
+`umyth` to `umtc`. It requires a fresh genesis and new chain ID; the previous `umyth`
+genesis and checksum cannot be reused. The package release alone does not migrate or
+launch a chain.
 
 ## Release
-To release a new version of your blockchain, create and push a new tag with `v` prefix. A new draft release with the configured targets will be created.
+Stable releases use semantic-version tags. The workflow runs dependency verification,
+unit tests, `go vet`, builds Linux/macOS/Windows amd64/arm64 archives and Ubuntu
+packages, and publishes SHA-256 manifests.
 
-```
-git tag v0.1
-git push origin v0.1
+```sh
+python release_mythchain.py v1.2.3
 ```
 
-After a draft release is created, make your final changes from the release page and publish it.
+The release helper requires a clean worktree and authenticated GitHub CLI; it asks for
+confirmation before pushing the branch and tag. Do not tag until the canonical
+production genesis and network manifest are approved.
 
 ### Install
-To install the latest version of your blockchain node's binary, execute the following command on your machine:
+Use the versioned installers for release verification and init/join setup:
 
+```sh
+bash install_mythprotocold.sh 1.2.3
 ```
-curl https://get.ignite.com/username/mythprotocol@latest! | sudo bash
-```
-`username/mythprotocol` should match the `username` and `repo_name` of the Github repository to which the source code was pushed. Learn more about [the install process](https://github.com/ignite/installer).
+
+Windows PowerShell installer: `install_mythprotocold.ps1 -Version 1.2.3`.
+
+### Production documentation
+
+- [User guide](docs/PRODUCTION_USER_GUIDE.md)
+- [Validator guide](docs/PRODUCTION_VALIDATOR_GUIDE.md)
+- [Founder guide](docs/PRODUCTION_FOUNDER_GUIDE.md)
+- [Production genesis ceremony checklist](docs/PRODUCTION_GENESIS_CEREMONY_CHECKLIST.md)
+- [Security policy](docs/SECURITY_POLICY.md)
+- [Treasury audit and tokenomics](docs/MYTH_TOKENOMICS_LAUNCH_PLAN.md)
+- [Per-OS Founder/Joiner package layout](release-packages/README.md)
 
 ## Learn more
 

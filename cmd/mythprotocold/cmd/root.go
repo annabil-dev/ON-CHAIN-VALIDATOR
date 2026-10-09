@@ -42,8 +42,8 @@ func NewRootCmd() *cobra.Command {
 	}
 
 	rootCmd := &cobra.Command{
-		Use:   app.Name + "d",
-		Short: "mythprotocol node",
+		Use:           app.Name + "d",
+		Short:         "mythprotocol node",
 		SilenceErrors: true,
 		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
 			// set the default command outputs
@@ -68,10 +68,19 @@ func NewRootCmd() *cobra.Command {
 			customAppTemplate, customAppConfig := initAppConfig()
 			customCMTConfig := initCometBFTConfig()
 
-			return server.InterceptConfigsPreRunHandler(cmd, customAppTemplate, customAppConfig, customCMTConfig)
+			if err := server.InterceptConfigsPreRunHandler(cmd, customAppTemplate, customAppConfig, customCMTConfig); err != nil {
+				return err
+			}
+			if cmd.Name() == "start" {
+				home, err := nodeHome(cmd, app.DefaultNodeHome)
+				if err != nil {
+					return err
+				}
+				return ValidateNodeHome(home)
+			}
+			return nil
 		},
 	}
-
 
 	// Since the IBC modules don't support dependency injection, we need to
 	// manually register the modules on the client side.

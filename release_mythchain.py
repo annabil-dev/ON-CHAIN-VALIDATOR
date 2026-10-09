@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Publish a tagged Mythchain prerelease from Windows using GitHub Actions.
+"""Publish a tagged stable Mythchain release from Windows using GitHub Actions.
 
 Requirements: Python 3, Git, and GitHub CLI (gh) authenticated to GitHub.
 The existing release workflow builds the Linux packages on GitHub Actions, so WSL
@@ -20,7 +20,7 @@ from pathlib import Path
 REPO = "annabil-dev/ON-CHAIN-VALIDATOR"
 ROOT = Path(__file__).resolve().parent
 RELEASE_WORKFLOW = "release.yml"
-TAG_PATTERN = re.compile(r"^v\d+\.\d+\.\d+-myth-phase1$")
+TAG_PATTERN = re.compile(r"^v\d+\.\d+\.\d+$")
 
 
 def run(command: list[str], *, capture: bool = False, check: bool = True) -> subprocess.CompletedProcess[str]:
@@ -110,14 +110,18 @@ def wait_for_release(tag: str, commit: str, timeout_seconds: int = 600) -> str:
             ]
         )
     )
-    if release.get("isDraft") or not release.get("isPrerelease"):
-        raise RuntimeError(f"GitHub created {tag}, but it is not a published prerelease.")
+    if release.get("isDraft") or release.get("isPrerelease"):
+        raise RuntimeError(f"GitHub created {tag}, but it is not a published stable release.")
 
     asset_names = {asset["name"] for asset in release.get("assets", [])}
     version = tag.removeprefix("v")
     required = {
         f"mythprotocold-{version}-linux-amd64.tar.gz",
         f"mythprotocold-{version}-linux-arm64.tar.gz",
+        f"mythprotocold-{version}-darwin-amd64.tar.gz",
+        f"mythprotocold-{version}-darwin-arm64.tar.gz",
+        f"mythprotocold-{version}-windows-amd64.zip",
+        f"mythprotocold-{version}-windows-arm64.zip",
         f"mythprotocold_{version}_amd64.deb",
         f"mythprotocold_{version}_amd64.deb.sha256",
         f"mythprotocold_{version}_arm64.deb",
@@ -132,12 +136,12 @@ def wait_for_release(tag: str, commit: str, timeout_seconds: int = 600) -> str:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("tag", help="Release tag, e.g. v0.1.3-myth-phase1")
+    parser.add_argument("tag", help="Stable release tag, e.g. v1.2.3")
     parser.add_argument("--yes", action="store_true", help="Skip the release confirmation prompt")
     args = parser.parse_args()
 
     if not TAG_PATTERN.fullmatch(args.tag):
-        parser.error("tag must look like v0.1.3-myth-phase1")
+        parser.error("tag must be a stable semantic version such as v1.2.3")
 
     try:
         assert_clean_worktree()
@@ -153,7 +157,7 @@ def main() -> int:
 
         commit = output(["git", "rev-parse", "HEAD"])
         print(f"\nRelease: {args.tag}\nBranch:  {branch}\nCommit:  {commit}\n")
-        if not args.yes and input(f"Push {branch} and tag {args.tag}, then publish the prerelease? [y/N] ").strip().lower() != "y":
+        if not args.yes and input(f"Push {branch} and tag {args.tag}, then publish the stable release? [y/N] ").strip().lower() != "y":
             print("Cancelled; nothing was pushed.")
             return 0
 

@@ -1,8 +1,8 @@
 # MTC / ZYRA Tokenomics and Launch Plan
 
 **Status:** the prior `umyth` chain is being replaced by an MTC-denominated genesis.
-The `v0.1.3-myth-phase1` candidate uses `umtc`; a fresh genesis and new chain ID are
-required. The old genesis/checksum is not compatible with this binary.
+The `v0.1.3-myth-phase1` prerelease using `umtc` is published; a fresh genesis and
+new chain ID are required. The old genesis/checksum is not compatible with this binary.
 
 ## Token roles
 
@@ -18,6 +18,16 @@ distributions; MTC is not inflated after genesis. The founder plans to self-bond
 800,000 MTC from the 1,000,000 MTC allocation, leaving 200,000 MTC liquid;
 Treasury grant/reward policy remains to be finalized.
 
+The canonical development genesis audit identifies the treasury as the deterministic
+`distribution` module address `myth1jv65s3grqf6v6jl3dp4t6c9t9rk99cd86qepld`, with
+20,000,000 MTC in the module bank balance and the same amount accounted in the
+`x/distribution` Community Pool. The founder is a distinct `BaseAccount` at
+`myth1csxr7p5tc4e6lvlh7tfeyud8ncjfyrtlhq8guu` with 1,000,000 MTC. Community Pool
+spending is authorized by the governance module (`x/gov`), not by the founder wallet.
+The selected early control model retains this governance pool; no synthetic multisig
+signers are generated. Run `mythprotocold treasury-audit --genesis release/genesis.json`
+before preparing a candidate release.
+
 ## Launch phases
 
 1. **MTC-only base chain:** bond and pay gas in MTC. ZYRA PoUW emission is disabled
@@ -28,6 +38,12 @@ Treasury grant/reward policy remains to be finalized.
    include both denoms. Gasless access is available at most once per minute while an
    account has zero balance in all currently accepted fee denoms. Any positive
    accepted-fee-token balance revokes gasless permanently, even after being spent.
+- **Official one-trial gasless rule:** the first ZYRA task payout of any positive
+  amount (miner or judge) permanently ends that account's gasless access
+  (`ReceivedFirstReward`), even if the account later withdraws everything and
+  returns to zero. After the trial is spent, the account must pay fees, buy ZYRA,
+  or earn as miner/judge. Enforced in `ConsumeGaslessAllowance` / `MarkFirstReward`
+  and covered by `TestGaslessAllowanceIsPerAccountRateLimitedAndEndsAtFirstReward`.
 
 The public genesis validator is the founder's mini PC at `114.10.44.157`, using chain
 ID `<NEW_MTC_CHAIN_ID>` (do not reuse the old `myth-mainnet-1` genesis). The canonical genesis/hash, peer seeds, RPC, commission,
@@ -74,6 +90,11 @@ genesis allocation.
 - Each Task ID pays once, on its first approval. Failed attempts pay zero and may be
   retried. If the reward pool is temporarily short, an approved payout waits for
   later emission.
+- **Official reward-source rule:** ZYRA task payouts come solely from newly minted
+  ZYRA emission into the PoUW module reward pool and are never drawn from the 20M
+  MTC governance treasury. Payouts move only `uzyra` from the `pouw` module account;
+  the module has no code path to `x/distribution`, the Community Pool, or `umtc`, so
+  the MTC treasury cannot fund ZYRA payouts by construction.
 
 ## Category automation
 
@@ -106,5 +127,5 @@ and delegator commands, and public rollout placeholders. The
 [`build_validator_release.sh`](../build_validator_release.sh) script prepares Linux
 amd64/arm64 tarballs and `.deb` packages, and [`release_mythchain.py`](../release_mythchain.py)
 publishes them through GitHub Actions without requiring a manual WSL shell. The
-`v0.1.3-myth-phase1` package is planned as the `umtc`-base-denom development
-prerelease, not a public-chain configuration.
+`v0.1.3-myth-phase1` is the published `umtc`-base-denom development prerelease, not
+a canonical public-chain configuration.

@@ -1,0 +1,6 @@
+# Genesis and checksum files must be byte-identical on every checkout:
+# any line-ending conversion would change the pinned SHA-256.
+release/genesis.json -text
+release/genesis.sha256 -text
+# Shell scripts must keep LF endings for the shebang to work.
+/*.sh text eol=lf

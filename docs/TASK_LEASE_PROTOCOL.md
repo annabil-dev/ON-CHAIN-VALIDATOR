@@ -16,9 +16,9 @@ no lease / released / expired
             │
             └── block height reaches expires_at_height ──> claimable by next miner
 
-SUBMITTED ── legacy: two matching PASS votes ──> APPROVED (terminal)
-SUBMITTED ── legacy: two matching FAIL votes ──> REJECTED (immediately retryable)
-SUBMITTED ── weighted: 2-of-3 majority per criterion ──> canonical score/status
+SUBMITTED ── legacy: three matching PASS votes ──> APPROVED (terminal)
+SUBMITTED ── legacy: three matching FAIL votes ──> REJECTED (immediately retryable)
+SUBMITTED ── weighted: 3-of-4 majority per criterion ──> canonical score/status
 ```
 
 Only one lease is stored per task. At height `H`, a claim for `N` blocks expires
@@ -37,10 +37,10 @@ hash. Weighted tasks also register immutable executable `criteria_json` as part
 of the task declaration. A submitted attempt accepts votes only until its lease
 expiry. Cosmos ante authentication verifies each vote transaction signer; the
 keeper counts at most one vote per judge address and excludes the client and
-miner. Legacy votes use two matching overall verdicts. Weighted votes store each
-Judge's per-criterion outcomes; the keeper waits for 2 of 3 per criterion, then
-recomputes the canonical weighted score and hard-gate result. A 1-1 split on any
-criterion waits for the third Judge or lease expiry.
+miner. Legacy votes use three matching overall verdicts. Weighted votes store each
+Judge's per-criterion outcomes; the keeper waits for 3 of 4 per criterion, then
+recomputes the canonical weighted score and hard-gate result. A 2-2 split on any
+criterion waits for the fourth Judge or lease expiry.
 
 ## Transactions and query
 

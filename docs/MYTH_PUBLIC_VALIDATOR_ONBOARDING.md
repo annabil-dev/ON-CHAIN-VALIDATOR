@@ -196,7 +196,7 @@ mythprotocold multi-node --v 1 \
   --commission-max-rate 0.06 \
   --commission-max-change-rate 0.01 \
   --keyring-backend file \
-  --minimum-gas-prices "0.0001umtc,0.0001uzyra"
+  --minimum-gas-prices "0.001umtc,0.001uzyra"
 ```
 
 Run this interactively on the mini-PC; the encrypted `file` keyring asks you to set

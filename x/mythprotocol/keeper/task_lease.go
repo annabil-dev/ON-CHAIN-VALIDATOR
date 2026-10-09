@@ -142,6 +142,9 @@ func (k Keeper) ClaimTask(ctx context.Context, msg *types.MsgClaimTask) (*types.
 	if previous.AcceptanceHash != msg.AcceptanceHash {
 		return nil, errorsmod.Wrap(types.ErrInvalidLease, "acceptance hash differs from registered task")
 	}
+	if previous.ClientAddress != "" && previous.ClientAddress == miner {
+		return nil, errorsmod.Wrap(types.ErrInvalidLease, "task client cannot claim its own task as miner")
+	}
 	if previous.Status == TaskLeaseStatusApproved {
 		return nil, types.ErrTaskFinalized
 	}
@@ -281,6 +284,9 @@ func (k Keeper) VoteTask(ctx context.Context, msg *types.MsgVoteTask) (*types.Ms
 		results, resultErr := types.ParseCriterionResults(criteria, msg.CriteriaResultsJson)
 		if resultErr != nil {
 			return nil, errorsmod.Wrap(types.ErrInvalidCriterionResults, resultErr.Error())
+		}
+		if err := types.BindEvidenceToChecks(criteria, results); err != nil {
+			return nil, errorsmod.Wrap(types.ErrInvalidCriterionResults, err.Error())
 		}
 		passedWeight, totalWeight, hardGatesPassed := types.ScoreCriterionResults(criteria, results)
 		judgePasses := hardGatesPassed && passedWeight*100 >= totalWeight*types.AcceptancePassingPercent

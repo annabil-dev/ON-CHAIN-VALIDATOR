@@ -1,6 +1,8 @@
 vue/node_modules
 vue/dist
 release/
+!release/genesis.json
+!release/genesis.sha256
 .testnets/
 data/
 *.db
@@ -18,3 +20,11 @@ keyring-test/
 *.dot
 *.log
 *.ign
+/mythprotocold
+/mythprotocold.exe
+*.bak*
+/fix_phase0_build.py
+/patch_phase0.py
+/release-genesis/
+*.pdf
+__pycache__/

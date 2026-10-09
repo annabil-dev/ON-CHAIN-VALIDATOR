@@ -49,6 +49,96 @@ func registerWeightedTask(t *testing.T, f *fixture, taskID, client string, crite
 	return response.Task
 }
 
+func TestClaimTaskRejectsClientSelfMining(t *testing.T) {
+	f := initFixture(t)
+	client := leaseAddress(t, f, 60)
+	miner := leaseAddress(t, f, 61)
+	registerTask(t, f, "task-selfmine", client)
+
+	_, err := f.keeper.ClaimTask(f.ctx, claimMessage(client, "task-selfmine", fmt.Sprintf("%064x", 60), 5))
+	require.ErrorContains(t, err, "cannot claim its own task")
+
+	claimed, err := f.keeper.ClaimTask(f.ctx, claimMessage(miner, "task-selfmine", fmt.Sprintf("%064x", 61), 5))
+	require.NoError(t, err)
+	require.Equal(t, miner, claimed.Lease.MinerAddress)
+}
+
+func TestSettleWaitsWhenPoolShortThenPaysAfterFunding(t *testing.T) {
+	f := initFixture(t)
+	client, miner := leaseAddress(t, f, 81), leaseAddress(t, f, 82)
+	judgeA, judgeB, judgeC := leaseAddress(t, f, 83), leaseAddress(t, f, 84), leaseAddress(t, f, 85)
+	criteriaJSON := `[{"id":"first","description":"First criterion","weight":80,"hard_gate":true,"check":{"type":"application_runs"}},{"id":"second","description":"Second criterion","weight":20,"hard_gate":false,"check":{"type":"application_runs"}}]`
+	_, err := f.keeper.RegisterTask(f.ctx, &types.MsgRegisterTask{
+		Creator: client, TaskId: "task-shortpool", AcceptanceHash: fmt.Sprintf("%064x", 123),
+		CriteriaJson: criteriaJSON, TaskCategory: types.TaskCategoryMedium,
+	})
+	require.NoError(t, err)
+
+	// Empty reward pool and empty PoUW module balance: nothing may be paid.
+	require.NoError(t, f.keeper.SetRuntimeState(f.ctx, types.RuntimeState{}))
+	setBlockHeight(f, 800)
+	lease, err := f.keeper.ClaimTask(f.ctx, claimMessage(miner, "task-shortpool", fmt.Sprintf("%064x", 81), 30))
+	require.NoError(t, err)
+	_, err = f.keeper.SubmitTaskResult(f.ctx, &types.MsgSubmitTaskResult{
+		Creator: miner, TaskId: "task-shortpool", AttemptId: lease.Lease.AttemptId,
+		ResultCid: "sha256:" + fmt.Sprintf("%064x", 82), ProofHash: fmt.Sprintf("%064x", 83),
+	})
+	require.NoError(t, err)
+	results := `{"first":{"passed":true,"evidence":"ok"},"second":{"passed":true,"evidence":"ok"}}`
+	for _, judge := range []string{judgeA, judgeB, judgeC} {
+		_, err = f.keeper.VoteTask(f.ctx, &types.MsgVoteTask{Creator: judge, TaskId: "task-shortpool",
+			AttemptId: lease.Lease.AttemptId, Verdict: "PASS", CriteriaResultsJson: results})
+		require.NoError(t, err)
+	}
+	require.NoError(t, f.keeper.SettlePendingTaskRewards(f.ctx))
+	pending, found, err := f.keeper.GetTaskLease(f.ctx, "task-shortpool")
+	require.NoError(t, err)
+	require.True(t, found)
+	require.False(t, pending.RewardSettled, "short pool must leave the payout pending, not pay")
+	minerBytes, err := f.addressCodec.StringToBytes(miner)
+	require.NoError(t, err)
+	require.Zero(t, f.bank.balances[string(minerBytes)][types.ZYRADenom])
+
+	// Fund only the PoUW module pool (never the MTC treasury path): payout proceeds.
+	require.NoError(t, f.keeper.SetRuntimeState(f.ctx, types.RuntimeState{Emission: types.PoUWEmissionState{
+		CumulativeScaled: 1_000_000 * types.EmissionFixedPointScale,
+		RewardPoolUzyra:  500_000,
+	}}))
+	f.bank.add(types.PoUWModuleName, types.ZYRADenom, 500_000)
+	require.NoError(t, f.keeper.SettlePendingTaskRewards(f.ctx))
+	settled, _, err := f.keeper.GetTaskLease(f.ctx, "task-shortpool")
+	require.NoError(t, err)
+	require.True(t, settled.RewardSettled)
+	require.EqualValues(t, 300_000, f.bank.balances[string(minerBytes)][types.ZYRADenom])
+}
+
+func TestVoteRejectsFabricatedEvidenceOnSubstringCheck(t *testing.T) {
+	f := initFixture(t)
+	client, miner, judge := leaseAddress(t, f, 91), leaseAddress(t, f, 92), leaseAddress(t, f, 93)
+	criteriaJSON := `[{"id":"out","description":"Output marker","weight":100,"check":{"type":"stdout_contains","text":"BUILD OK"}}]`
+	registerWeightedTask(t, f, "task-evidence", client, criteriaJSON)
+	setBlockHeight(f, 900)
+	lease, err := f.keeper.ClaimTask(f.ctx, claimMessage(miner, "task-evidence", fmt.Sprintf("%064x", 91), 30))
+	require.NoError(t, err)
+	_, err = f.keeper.SubmitTaskResult(f.ctx, &types.MsgSubmitTaskResult{
+		Creator: miner, TaskId: "task-evidence", AttemptId: lease.Lease.AttemptId,
+		ResultCid: "sha256:" + fmt.Sprintf("%064x", 92), ProofHash: fmt.Sprintf("%064x", 93),
+	})
+	require.NoError(t, err)
+
+	// Lazy vote: claims pass without quoting the observed marker.
+	_, err = f.keeper.VoteTask(f.ctx, &types.MsgVoteTask{Creator: judge, TaskId: "task-evidence",
+		AttemptId: lease.Lease.AttemptId, Verdict: "PASS",
+		CriteriaResultsJson: `{"out":{"passed":true,"evidence":"ok"}}`})
+	require.ErrorContains(t, err, "does not contain")
+
+	// Honest vote quoting the observed marker is accepted and stays submitted.
+	_, err = f.keeper.VoteTask(f.ctx, &types.MsgVoteTask{Creator: judge, TaskId: "task-evidence",
+		AttemptId: lease.Lease.AttemptId, Verdict: "PASS",
+		CriteriaResultsJson: `{"out":{"passed":true,"evidence":"tail: BUILD OK"}}`})
+	require.NoError(t, err)
+}
+
 func TestClaimTaskConflictExpiresAndReclaims(t *testing.T) {
 	f := initFixture(t)
 	minerA, minerB := leaseAddress(t, f, 1), leaseAddress(t, f, 2)
