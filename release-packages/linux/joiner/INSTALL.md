@@ -26,3 +26,11 @@ mythprotocold start --home "$HOME/.mythprotocol"
 ```
 
 Use only the chain ID and peer IDs from the matching official manifest.
+
+## Uninstall (Linux)
+
+```sh
+rm -rf ~/.local/bin/mythprotocold ~/.mythprotocol
+# or, for an isolated folder install:
+rm -rf ~/myth-test
+```

@@ -26,3 +26,9 @@ mythprotocold start --home "$HOME/.mythprotocol"
 ```
 
 Do not bypass macOS security controls to run an unsigned/unverified binary.
+
+## Uninstall (macOS)
+
+```sh
+rm -rf ~/.local/bin/mythprotocold ~/.mythprotocol
+```
