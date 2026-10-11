@@ -46,6 +46,9 @@ func NewRootCmd() *cobra.Command {
 		Short:         "mythprotocol node",
 		SilenceErrors: true,
 		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
+			if err := enableFriendlyStartConsole(cmd); err != nil {
+				return err
+			}
 			// set the default command outputs
 			cmd.SetOut(cmd.OutOrStdout())
 			cmd.SetErr(cmd.ErrOrStderr())

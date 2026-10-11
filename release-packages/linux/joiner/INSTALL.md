@@ -6,13 +6,13 @@ Quick path (recommended):
 curl -fsSL https://mythchain.pages.dev/install.sh | bash
 ```
 
-The wizard verifies `SHA256SUMS`, installs the binary and genesis, then walks
-through `init-node` → `join` → `start`. It prefills the official values from the
-live manifest — just press Enter to accept:
+The bootstrap verifies SHA-256, installs the binary and genesis, then automatically
+runs `init-node` → `join` → `start` for a fresh node. On upgrades it preserves
+the existing node home and skips re-initialization. Peer data comes from:
 
 - Manifest: https://mythchain.pages.dev/network.json
 - Current testnet: `mythchain-testnet-v2`
-- Current peer: `39e6c1180ab191c363b085b47505754506af1f86@0.tcp.ap.ngrok.io:24981`
+- Current peer: use `persistent_peers` from the live manifest; ngrok port numbers can change.
 
 Manual fallback (only if the wizard cannot run):
 
