@@ -127,6 +127,8 @@ def wait_for_release(tag: str, commit: str, timeout_seconds: int = 600) -> str:
         f"mythprotocold_{version}_arm64.deb",
         f"mythprotocold_{version}_arm64.deb.sha256",
         "SHA256SUMS",
+        "bootstrap-joiner.ps1",
+        "bootstrap-joiner.sh",
     }
     missing = sorted(required - asset_names)
     if missing:

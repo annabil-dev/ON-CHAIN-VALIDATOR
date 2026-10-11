@@ -38,6 +38,14 @@ jobs:
           OUT_DIR="release/${GITHUB_REF_NAME}"
           VERSION="$VERSION" OUT_DIR="$OUT_DIR" COMMIT="$GITHUB_SHA" bash build_validator_release.sh
 
+      - name: Verify release assets and bootstrap checksums
+        shell: bash
+        run: |
+          cd "release/${GITHUB_REF_NAME}"
+          test -s bootstrap-joiner.ps1
+          test -s bootstrap-joiner.sh
+          sha256sum -c SHA256SUMS
+
       - name: Publish stable release assets
         uses: softprops/action-gh-release@v2
         with:

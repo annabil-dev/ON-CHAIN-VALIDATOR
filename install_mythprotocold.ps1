@@ -45,9 +45,23 @@ try {
     $Binary = Join-Path $InstallDir 'mythprotocold.exe'
     & $Binary version
 
+    # Short command for subsequent sessions: mythprotocol start / mythprotocol status.
+    $Launcher = Join-Path $InstallDir 'mythprotocol.cmd'
+    $LauncherText = '@echo off' + "`r`n" + '"%~dp0mythprotocold.exe" %*' + "`r`n"
+    [System.IO.File]::WriteAllText($Launcher, $LauncherText, [System.Text.Encoding]::ASCII)
+    $UserPath = [Environment]::GetEnvironmentVariable('Path', 'User')
+    $UserPathItems = @($UserPath -split ';' | Where-Object { $_ })
+    $AlreadyInPath = @($UserPathItems | Where-Object { $_.TrimEnd('\') -ieq $InstallDir.TrimEnd('\') }).Count -gt 0
+    if (-not $AlreadyInPath) {
+        [Environment]::SetEnvironmentVariable('Path', (($UserPathItems + $InstallDir) -join ';'), 'User')
+    }
+    if ($env:Path -notlike "*$InstallDir*") { $env:Path += ";$InstallDir" }
+    Write-Output "CLI shortcut installed. Open a new PowerShell and run: mythprotocol start"
+
     $Initialize = Read-Host "Initialize node at '$NodeHome' now? [y/N]"
     if ($Initialize -match '^(y|yes)$') {
         & $Binary init-node --home $NodeHome --genesis (Join-Path $InstallDir 'release\genesis.json')
+        if ($LASTEXITCODE -ne 0) { throw 'Node initialization failed; join aborted' }
         $Join = Read-Host 'Join a network now? [y/N]'
         if ($Join -match '^(y|yes)$') {
             $ManifestChain = ''
@@ -67,8 +81,9 @@ try {
             if ($Peers) { $JoinArgs += @('--persistent-peers', $Peers) }
             if ($Seeds) { $JoinArgs += @('--seeds', $Seeds) }
             & $Binary @JoinArgs
+            if ($LASTEXITCODE -ne 0) { throw 'Node join failed; start aborted' }
             $Start = Read-Host 'Start the node in this terminal now? [y/N]'
-            if ($Start -match '^(y|yes)$') { & $Binary start --home $NodeHome }
+            if ($Start -match '^(y|yes)$') { & $Binary start --home $NodeHome; if ($LASTEXITCODE -ne 0) { throw 'Node exited with an error' } }
         }
     }
     $GenesisPath = Join-Path $InstallDir 'release\genesis.json'
@@ -76,7 +91,8 @@ try {
     Write-Output 'Next steps (replace CHAIN_ID and PEERS with the official network manifest values):'
     Write-Output "  & '$Binary' init-node --home '$NodeHome' --genesis '$GenesisPath'"
     Write-Output "  & '$Binary' join --home '$NodeHome' --chain-id CHAIN_ID --persistent-peers PEERS"
-    Write-Output "  & '$Binary' start --home '$NodeHome'"
+    Write-Output "  mythprotocol start --home '$NodeHome'"
+    Write-Output "  mythprotocol status --node tcp://127.0.0.1:26657"
 } finally {
     Remove-Item -LiteralPath $TempDir -Recurse -Force -ErrorAction SilentlyContinue
 }

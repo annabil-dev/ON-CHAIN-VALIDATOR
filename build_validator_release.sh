@@ -20,6 +20,11 @@ if [[ ! "${GENESIS_SHA256}" =~ ^[0-9a-f]{64}$ || "${ACTUAL_GENESIS_SHA256}" != "
   exit 1
 fi
 
+
+# Publish the website's one-command bootstraps alongside each stable release.
+# Without these assets, /install.ps1 and /install.sh redirects would return 404.
+cp release-packages/bootstrap-joiner.ps1 release-packages/bootstrap-joiner.sh "${OUT_DIR}/"
+
 TARGETS=("linux amd64" "linux arm64" "darwin amd64" "darwin arm64" "windows amd64" "windows arm64")
 for target in "${TARGETS[@]}"; do
   read -r GOOS GOARCH <<< "${target}"
@@ -87,7 +92,7 @@ done
     [[ -f "${DEB}" ]] || continue
     sha256sum "${DEB}" > "${DEB}.sha256"
   done
-  sha256sum mythprotocold-* mythprotocold_* > SHA256SUMS
+  sha256sum mythprotocold-* mythprotocold_* bootstrap-joiner.ps1 bootstrap-joiner.sh > SHA256SUMS
 )
 
 printf 'Pinned genesis SHA-256: %s\n' "${GENESIS_SHA256}"
