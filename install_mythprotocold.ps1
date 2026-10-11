@@ -3,27 +3,48 @@ param(
     [ValidatePattern('^(\d+\.\d+\.\d+|latest)$')]
     [string]$Version,
     [string]$InstallDir = (Join-Path $env:LOCALAPPDATA 'Programs\MythChain'),
-    [string]$NodeHome = (Join-Path $HOME '.mythprotocol')
+    [string]$NodeHome = (Join-Path $HOME '.mythprotocol'),
+    [string]$VerifiedArchive = '',
+    [string]$VerifiedChecksums = ''
 )
 
 $ErrorActionPreference = 'Stop'
 $Repository = if ($env:MYTHCHAIN_REPO) { $env:MYTHCHAIN_REPO } else { 'annabil-dev/ON-CHAIN-VALIDATOR' }
 $Architecture = if ([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture -eq 'Arm64') { 'arm64' } else { 'amd64' }
-$Archive = "mythprotocold-$Version-windows-$Architecture.zip"
-$BaseUrl = "https://github.com/$Repository/releases/download/v$Version"
 if ($Version -eq 'latest') {
     $Latest = Invoke-RestMethod -Uri "https://api.github.com/repos/$Repository/releases/latest"
     $Version = ($Latest.tag_name -replace '^v', '')
     if ($Version -notmatch '^\d+\.\d+\.\d+$') { throw "Could not resolve a stable release version from GitHub" }
     Write-Output "Resolved latest stable release: $Version"
 }
+$Archive = "mythprotocold-$Version-windows-$Architecture.zip"
+$BaseUrl = "https://github.com/$Repository/releases/download/v$Version"
+# Never try to overwrite an executable currently serving blocks. In particular,
+# do not kill a running node or disturb its validator/node home automatically.
+$CurrentBinary = Join-Path $InstallDir 'mythprotocold.exe'
+if (Test-Path -LiteralPath $CurrentBinary) {
+    $ActiveNodes = @(Get-Process -Name 'mythprotocold' -ErrorAction SilentlyContinue | Where-Object {
+        try { $_.Path -ieq $CurrentBinary } catch { $false }
+    })
+    if ($ActiveNodes.Count -gt 0) {
+        $Pids = ($ActiveNodes | ForEach-Object { $_.Id }) -join ', '
+        throw "Mythchain node is still running (PID $Pids). Stop it normally with Ctrl+C in its node terminal, then re-run the installer. The existing node home '$NodeHome' must be preserved; do not initialize or join again."
+    }
+}
 $TempDir = Join-Path ([System.IO.Path]::GetTempPath()) ([guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Force -Path $TempDir | Out-Null
 try {
     $ArchivePath = Join-Path $TempDir $Archive
     $ChecksumsPath = Join-Path $TempDir 'SHA256SUMS'
-    Invoke-WebRequest -Uri "$BaseUrl/$Archive" -OutFile $ArchivePath
-    Invoke-WebRequest -Uri "$BaseUrl/SHA256SUMS" -OutFile $ChecksumsPath
+    if ($VerifiedArchive -or $VerifiedChecksums) {
+        if (-not $VerifiedArchive -or -not $VerifiedChecksums) { throw 'Both verified package paths are required' }
+        if ([System.IO.Path]::GetFileName($VerifiedArchive) -ne $Archive) { throw 'Verified archive does not match requested release' }
+        Copy-Item -LiteralPath $VerifiedArchive -Destination $ArchivePath
+        Copy-Item -LiteralPath $VerifiedChecksums -Destination $ChecksumsPath
+    } else {
+        Invoke-WebRequest -Uri "$BaseUrl/$Archive" -OutFile $ArchivePath
+        Invoke-WebRequest -Uri "$BaseUrl/SHA256SUMS" -OutFile $ChecksumsPath
+    }
     $Line = Get-Content $ChecksumsPath | Where-Object { $_ -match "^([0-9a-fA-F]{64})\s+\*?$([regex]::Escape($Archive))$" } | Select-Object -First 1
     if (-not $Line) { throw "Release checksum missing for $Archive" }
     $Expected = [regex]::Match($Line, '^([0-9a-fA-F]{64})').Groups[1].Value.ToLowerInvariant()
@@ -57,6 +78,17 @@ try {
     }
     if ($env:Path -notlike "*$InstallDir*") { $env:Path += ";$InstallDir" }
     Write-Output "CLI shortcut installed. Open a new PowerShell and run: mythprotocol start"
+
+    $ExistingGenesis = Join-Path $NodeHome 'config\genesis.json'
+    if (Test-Path -LiteralPath $ExistingGenesis) {
+        Write-Output ''
+        Write-Output "Existing node home found: $NodeHome"
+        Write-Output 'Preserving existing chain database, configuration and node identity.'
+        Write-Output 'Upgrade complete; initialization and peer setup were SKIPPED.'
+        Write-Output 'To resume your node in a NEW PowerShell terminal: mythprotocol start'
+        Write-Output 'To check sync: mythprotocol status --node tcp://127.0.0.1:26657'
+        return
+    }
 
     $Initialize = Read-Host "Initialize node at '$NodeHome' now? [y/N]"
     if ($Initialize -match '^(y|yes)$') {
